@@ -16,17 +16,12 @@ export function ResourceCard({ title, usagePercent, detail }: ResourceCardProps)
         <p className="text-sm font-medium text-slate-300">{title}</p>
         <p className="text-sm font-semibold text-slate-100">{roundedUsage}%</p>
       </div>
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-800">
-        <div
-          className="h-full rounded-full bg-[#3B82F6] transition-all duration-300"
-          style={{ width: `${normalizedUsage}%` }}
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={roundedUsage}
-          aria-label={title}
-        />
-      </div>
+      <progress
+        className="mt-4 h-2 w-full overflow-hidden rounded-full [appearance:none] [&::-webkit-progress-bar]:bg-slate-800 [&::-webkit-progress-value]:bg-[#3B82F6] [&::-moz-progress-bar]:bg-[#3B82F6]"
+        value={roundedUsage}
+        max={100}
+        aria-label={title}
+      />
       <p className="mt-3 text-xs text-slate-500">{detail}</p>
     </article>
   );
