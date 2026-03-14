@@ -58,11 +58,13 @@ model Bid {
   providerId   String
   price        Float
   status       BidStatus  @default(OPEN)
+  createdAt    DateTime   @default(now())
   deployment   Deployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
   provider     Provider   @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
   @@index([deploymentId])
   @@index([providerId])
+  @@index([createdAt])
 }
 
 model Transaction {

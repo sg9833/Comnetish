@@ -10,8 +10,8 @@ Run these checks:
 
 ```
 ☐ Check Bun:           bun --version     (should be v1.0+)
-☐ Check Node:          node --version    (should be v18+)
-☐ Check pnpm:          pnpm --version    (should be v8+)
+☐ Check Node:          node --version    (should be v20+)
+☐ Check pnpm:          pnpm --version    (should be v9+)
 ☐ Check PostgreSQL:    psql --version    (should be installed)
 ☐ Check PostgreSQL running: pg_isready   (should say "accepting")
 ```
@@ -81,7 +81,7 @@ cd /Users/garinesaiajay/projects/Comnetish/services/api
 ☐ pnpm build
 ☐ pnpm start
 
-📍 Wait for message: "listening on http://0.0.0.0:3000"
+📍 Wait for message: "listening on http://0.0.0.0:3001"
 ✅ When you see that, this service is ready
 ```
 
@@ -123,7 +123,7 @@ cd /Users/garinesaiajay/projects/Comnetish/apps/provider-console
 
 ```bash
 # Test 1: API responds
-☐ curl http://localhost:3000/api/providers | head -20
+☐ curl http://localhost:3001/api/providers | head -20
    (Should show JSON with provider data)
 
 # Test 2: AI Agent responds
@@ -158,7 +158,7 @@ You should see:
 ### ✅ Provider Console
 
 ```
-URL: http://localhost:3001 (or 3002 if 3001 taken)
+URL: http://localhost:3002
 You should see:
 ☐ Page loads without errors
 ☐ Dashboard with stats
@@ -174,16 +174,16 @@ You should see:
 In any browser tab, test these URLs:
 
 ```
-✅ Providers: http://localhost:3000/api/providers
+✅ Providers: http://localhost:3001/api/providers
    Should show 5 providers
 
-✅ Deployments: http://localhost:3000/api/deployments
+✅ Deployments: http://localhost:3001/api/deployments
    Should show 4 deployments
 
-✅ Leases: http://localhost:3000/api/leases
+✅ Leases: http://localhost:3001/api/leases
    Should show 2 active leases
 
-✅ Bids: http://localhost:3000/api/bids
+✅ Bids: http://localhost:3001/api/bids
    Should show 12 bids
 ```
 
@@ -195,24 +195,24 @@ In Terminal #5, run these API tests:
 
 ```bash
 # Get IDs
-DEPLOYMENT=$(curl -s http://localhost:3000/api/deployments | jq -r '.data[0].id')
-PROVIDER=$(curl -s http://localhost:3000/api/providers | jq -r '.data[0].id')
+DEPLOYMENT=$(curl -s http://localhost:3001/api/deployments | jq -r '.data[0].id')
+PROVIDER=$(curl -s http://localhost:3001/api/providers | jq -r '.data[0].id')
 
 echo "Deployment: $DEPLOYMENT"
 echo "Provider: $PROVIDER"
 
 # Create a bid
-☐ curl -X POST http://localhost:3000/api/bids \
+☐ curl -X POST http://localhost:3001/api/bids \
     -H "Content-Type: application/json" \
     -d "{\"deploymentId\":\"$DEPLOYMENT\",\"providerId\":\"$PROVIDER\",\"price\":1.5}"
 
 # Create a lease (accept the bid)
-☐ curl -X POST http://localhost:3000/api/leases \
+☐ curl -X POST http://localhost:3001/api/leases \
     -H "Content-Type: application/json" \
     -d "{\"deploymentId\":\"$DEPLOYMENT\",\"providerId\":\"$PROVIDER\",\"pricePerBlock\":0.1}"
 
 # Verify in provider console
-☐ Go to http://localhost:3001
+☐ Go to http://localhost:3002
 ☐ Should see new lease in dashboard
 ```
 
@@ -253,7 +253,7 @@ Dashboard (http://localhost:3000/dashboard)
 ### Provider Console
 
 ```
-Home Page (http://localhost:3001)
+Home Page (http://localhost:3002)
   ☐ See active leases
   ☐ See earnings stats
   ☐ See resources bars
@@ -295,7 +295,7 @@ That's the main page! Explore and try interactions.
 ### ❌ "Pages show no data"
 
 ```bash
-☐ Go to: http://localhost:3000/api/providers
+☐ Go to: http://localhost:3001/api/providers
 ☐ If empty, re-seed:
    cd services/api
    pnpm prisma db seed
@@ -339,7 +339,7 @@ PHASE 5: Verification
 
 PHASE 6: Browser Access
 ☐ http://localhost:3000 loads
-☐ http://localhost:3001 loads
+☐ http://localhost:3002 loads
 ☐ Both show dashboards with data
 
 PHASE 7: Data Verification
@@ -375,7 +375,7 @@ When everything above is checked off, your local Comnetish setup is complete!
 
 ```bash
 # One-liner to check everything
-curl http://localhost:3000/api/providers -s | grep -q data && \
+curl http://localhost:3001/api/providers -s | grep -q data && \
 curl http://localhost:3010/health -s | grep -q service && \
 echo "✅ Everything running!" || echo "❌ Something's wrong"
 

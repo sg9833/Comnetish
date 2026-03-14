@@ -10,6 +10,16 @@ const createBidSchema = z.object({
   price: z.number().positive()
 });
 
+const listBidQuerySchema = z.object({
+  deploymentId: z.string().min(1).optional(),
+  providerId: z.string().min(1).optional()
+});
+
+const updateBidSchema = z.object({
+  // LOST is the only valid transition providers can make (withdrawing their bid)
+  status: z.enum(['LOST'])
+});
+
 const bids = new Hono();
 
 bids.post('/', zValidator('json', createBidSchema), async (c) => {
@@ -34,7 +44,6 @@ bids.post('/', zValidator('json', createBidSchema), async (c) => {
     throw new HttpError(404, 'Provider not found');
   }
 
-  // Create bid
   const bid = await prisma.bid.create({
     data: {
       deploymentId: payload.deploymentId,
@@ -51,26 +60,46 @@ bids.post('/', zValidator('json', createBidSchema), async (c) => {
   return c.json({ data: bid }, 201);
 });
 
-bids.get(
-  '/',
-  zValidator(
-    'query',
-    z.object({
-      deploymentId: z.string().min(1)
-    })
-  ),
-  async (c) => {
-    const { deploymentId } = c.req.valid('query');
-    const items = await prisma.bid.findMany({
-      where: { deploymentId },
-      include: {
-        provider: true
-      },
-      orderBy: { price: 'asc' }
-    });
+bids.get('/', zValidator('query', listBidQuerySchema), async (c) => {
+  const { deploymentId, providerId } = c.req.valid('query');
 
-    return c.json({ data: items });
+  if (!deploymentId && !providerId) {
+    throw new HttpError(400, 'Provide at least one filter: deploymentId or providerId');
   }
-);
+
+  const items = await prisma.bid.findMany({
+    where: {
+      ...(deploymentId ? { deploymentId } : {}),
+      ...(providerId ? { providerId } : {})
+    },
+    include: {
+      provider: true
+    },
+    orderBy: { price: 'asc' }
+  });
+
+  return c.json({ data: items });
+});
+
+// Withdraw a bid: provider cancels their open bid (sets status to LOST)
+bids.patch('/:id', zValidator('json', updateBidSchema), async (c) => {
+  const id = c.req.param('id');
+  const { status } = c.req.valid('json');
+
+  const bid = await prisma.bid.findUnique({ where: { id } });
+  if (!bid) {
+    throw new HttpError(404, 'Bid not found');
+  }
+  if (bid.status !== 'OPEN') {
+    throw new HttpError(400, 'Only OPEN bids can be withdrawn');
+  }
+
+  const updated = await prisma.bid.update({
+    where: { id },
+    data: { status }
+  });
+
+  return c.json({ data: updated });
+});
 
 export { bids };

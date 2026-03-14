@@ -41,7 +41,7 @@ echo "✅ Database ready!"
 ```bash
 cd /Users/garinesaiajay/projects/Comnetish/services/api
 pnpm build && pnpm start
-# 🟢 Ready on http://localhost:3000
+# 🟢 Ready on http://localhost:3001
 ```
 
 **Terminal 2 - AI Ag:**
@@ -65,7 +65,7 @@ pnpm dev
 ```bash
 cd /Users/garinesaiajay/projects/Comnetish/apps/provider-console
 pnpm dev
-# 🟢 Ready on http://localhost:3001
+# 🟢 Ready on http://localhost:3002
 ```
 
 ---
@@ -81,14 +81,14 @@ http://localhost:3000
 **Provider Console:**
 
 ```
-http://localhost:3001
+http://localhost:3002
 ```
 
 **Direct API Test:**
 
 ```bash
 # In a terminal, run:
-curl http://localhost:3000/api/providers | head -50
+curl http://localhost:3001/api/providers | head -50
 ```
 
 ---
@@ -99,7 +99,7 @@ Run this in a terminal:
 
 ```bash
 # All should return JSON
-curl http://localhost:3000/api/providers | grep -q "data" && echo "✅ API works"
+curl http://localhost:3001/api/providers | grep -q "data" && echo "✅ API works"
 curl http://localhost:3010/health | grep -q "service" && echo "✅ AI works"
 echo "✅ Go to http://localhost:3000 in browser"
 ```
@@ -112,7 +112,7 @@ echo "✅ Go to http://localhost:3000 in browser"
    - Should see stats and dashboards
    - Should show 5 providers, 4 deployments, 2 active leases
 
-2. **Go to http://localhost:3001**
+2. **Go to http://localhost:3002**
    - Provider console dashboard
    - Should show active leases and stats
 
@@ -123,10 +123,10 @@ DEPLOYMENT="deploy-comnetish1tenantdemoa99f0u29k3f-0"
 PROVIDER="YOUR_FIRST_PROVIDER_ID"
 
 # Get first provider ID
-PROVIDER=$(curl -s http://localhost:3000/api/providers | jq -r '.data[0].id')
+PROVIDER=$(curl -s http://localhost:3001/api/providers | jq -r '.data[0].id')
 
 # Create a bid
-curl -X POST http://localhost:3000/api/bids \
+curl -X POST http://localhost:3001/api/bids \
   -H "Content-Type: application/json" \
   -d "{\"deploymentId\":\"$DEPLOYMENT\",\"providerId\":\"$PROVIDER\",\"price\":2.5}"
 ```
@@ -135,13 +135,13 @@ curl -X POST http://localhost:3000/api/bids \
 
 ```bash
 # Accept the bid and create lease
-curl -X POST http://localhost:3000/api/leases \
+curl -X POST http://localhost:3001/api/leases \
   -H "Content-Type: application/json" \
   -d "{\"deploymentId\":\"$DEPLOYMENT\",\"providerId\":\"$PROVIDER\",\"pricePerBlock\":0.2}"
 ```
 
 5. **Verify in Provider Console:**
-   - Refresh http://localhost:3001
+   - Refresh http://localhost:3002
    - Should show new lease in the dashboard
 
 ---
@@ -153,6 +153,7 @@ curl -X POST http://localhost:3000/api/leases \
 ```bash
 lsof -ti:3000 | xargs kill -9
 lsof -ti:3001 | xargs kill -9
+lsof -ti:3002 | xargs kill -9
 lsof -ti:3010 | xargs kill -9
 ```
 
@@ -219,8 +220,8 @@ Comnetish/
 | Service          | URL                   | Port | What It Is         |
 | ---------------- | --------------------- | ---- | ------------------ |
 | Main Console     | http://localhost:3000 | 3000 | Tenant portal      |
-| Provider Console | http://localhost:3001 | 3001 | Provider dashboard |
-| API              | http://localhost:3000 | 3000 | REST API           |
+| Provider Console | http://localhost:3002 | 3002 | Provider dashboard |
+| API              | http://localhost:3001 | 3001 | REST API           |
 | AI Agent         | http://localhost:3010 | 3010 | AI service         |
 
 ---
@@ -244,7 +245,7 @@ Your Laptop
 ├─ PostgreSQL Database (localhost:5432)
 │  └─ Stores: providers, deployments, bids, leases
 │
-├─ API Server (localhost:3000)
+├─ API Server (localhost:3001)
 │  └─ REST endpoints for all operations
 │
 ├─ AI Agent (localhost:3010)
@@ -253,7 +254,7 @@ Your Laptop
 ├─ Main Console (localhost:3000 but separate Next.js)
 │  └─ Frontend UI for tenants
 │
-└─ Provider Console (localhost:3001)
+└─ Provider Console (localhost:3002)
    └─ Frontend UI for providers
 ```
 
@@ -269,7 +270,7 @@ Your Laptop
 - [ ] View provider dashboard
 - [ ] Try to create a deployment
 
-### On Provider Console (http://localhost:3001):
+### On Provider Console (http://localhost:3002):
 
 - [ ] See dashboard with active leases
 - [ ] View available resources
@@ -280,16 +281,16 @@ Your Laptop
 
 ```bash
 # List all providers
-curl http://localhost:3000/api/providers | jq
+curl http://localhost:3001/api/providers | jq
 
 # List all deployments
-curl http://localhost:3000/api/deployments | jq
+curl http://localhost:3001/api/deployments | jq
 
 # List all leases
-curl http://localhost:3000/api/leases | jq
+curl http://localhost:3001/api/leases | jq
 
 # Get provider stats
-curl http://localhost:3000/api/providers/me/stats | jq
+curl http://localhost:3001/api/providers/me/stats | jq
 
 # Get AI models
 curl http://localhost:3010/models | jq

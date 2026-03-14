@@ -24,7 +24,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Configuration
-API_URL="http://localhost:3000"
+API_URL="http://localhost:3001"
 AI_URL="http://localhost:3010"
 TEST_RESULTS_PASS=0
 TEST_RESULTS_FAIL=0
@@ -312,7 +312,7 @@ if [ $TEST_RESULTS_FAIL -eq 0 ]; then
     echo ""
     print_info "Now you can:"
     echo "  1. Open Main Console:       http://localhost:3000"
-    echo "  2. Open Provider Console:   http://localhost:3001"
+    echo "  2. Open Provider Console:   http://localhost:3002"
     echo "  3. Check browser DevTools for network requests"
     echo "  4. Run end-to-end workflow: create deployment → submit bid → accept bid"
 else

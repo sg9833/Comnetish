@@ -80,10 +80,10 @@ Terminal 4:  cd apps/provider-console && pnpm dev
 
 # 3. Open browser:
 http://localhost:3000     # Main console
-http://localhost:3001     # Provider console
+http://localhost:3002     # Provider console
 
 # 4. Test API:
-curl http://localhost:3000/api/providers | jq
+curl http://localhost:3001/api/providers | jq
 ```
 
 ✅ **Done! Everything is running.**
@@ -95,7 +95,7 @@ curl http://localhost:3000/api/providers | jq
 ```
 Comnetish/
 ├── services/
-│   ├── api/                 ← REST API (Port 3000)
+│   ├── api/                 ← REST API (Port 3001)
 │   │   └── src/routes/
 │   │       ├── bids.ts      ← POST /api/bids endpoint
 │   │       ├── leases.ts    ← POST /api/leases endpoint
@@ -225,7 +225,7 @@ Is database empty?
 
 Are pages showing no data?
 ├─ Yes → Check if API returns data:
-│        curl http://localhost:3000/api/providers
+│        curl http://localhost:3001/api/providers
 └─ No → Continue
 
 Do styles look broken?
@@ -284,7 +284,7 @@ cd apps/console && pnpm dev                           # Terminal 3
 cd apps/provider-console && pnpm dev                  # Terminal 4
 
 # TESTING
-curl http://localhost:3000/api/providers | jq
+curl http://localhost:3001/api/providers | jq
 curl http://localhost:3010/health | jq
 
 # DATABASE
@@ -307,7 +307,7 @@ You'll know everything is working when:
 
 1. ✅ All 4 services show "Ready" or "listening" messages
 2. ✅ http://localhost:3000 loads and shows dashboards
-3. ✅ http://localhost:3001 loads and shows dashboards
+3. ✅ http://localhost:3002 loads and shows dashboards
 4. ✅ API returns JSON responses
 5. ✅ Database has 5 providers, 4 deployments, 2 leases
 6. ✅ No red errors in terminals

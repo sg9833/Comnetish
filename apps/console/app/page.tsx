@@ -5,7 +5,21 @@ import { motion } from 'framer-motion';
 import { Card, StatCard, Badge, Button } from '@comnetish/ui';
 import Link from 'next/link';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+interface DeploymentApiRecord {
+  id: string;
+  tenantAddress: string;
+  status: 'OPEN' | 'ACTIVE' | 'CLOSED';
+  createdAt: string;
+  closedAt?: string;
+  bids?: Array<{ id: string; price: number }>;
+  leases?: Array<{ id: string; status: string }>;
+  _count?: {
+    bids?: number;
+    leases?: number;
+  };
+}
 
 interface Deployment {
   id: string;
@@ -13,8 +27,8 @@ interface Deployment {
   status: 'OPEN' | 'ACTIVE' | 'CLOSED';
   createdAt: string;
   closedAt?: string;
-  bids: Array<{ id: string; price: number }>;
-  leases: Array<{ id: string; status: string }>;
+  bidCount: number;
+  leaseCount: number;
 }
 
 interface Lease {
@@ -25,44 +39,60 @@ interface Lease {
   pricePerBlock: number;
 }
 
+function normalizeDeployments(records: DeploymentApiRecord[]): Deployment[] {
+  return records.map((record) => ({
+    id: record.id,
+    tenantAddress: record.tenantAddress,
+    status: record.status,
+    createdAt: record.createdAt,
+    closedAt: record.closedAt,
+    bidCount: record._count?.bids ?? record.bids?.length ?? 0,
+    leaseCount: record._count?.leases ?? record.leases?.length ?? 0
+  }));
+}
+
 export default function HomePage() {
   // Fetch deployments
-  const { data: deployments, isLoading: deploymentsLoading } = useQuery({
+  const { data: deployments = [], isLoading: deploymentsLoading } = useQuery<Deployment[]>({
     queryKey: ['deployments'],
     queryFn: async () => {
       const response = await fetch(`${API_BASE}/api/deployments`);
       if (!response.ok) {
         throw new Error('Failed to load deployments');
       }
-      const payload = (await response.json()) as { data: Deployment[] };
-      return payload.data;
+      const payload = (await response.json()) as { data?: DeploymentApiRecord[] };
+      return normalizeDeployments(payload.data ?? []);
     },
     refetchInterval: 30_000
   });
 
   // Fetch leases
-  const { data: leases, isLoading: leasesLoading } = useQuery({
+  const { data: leases = [], isLoading: leasesLoading } = useQuery<Lease[]>({
     queryKey: ['leases'],
     queryFn: async () => {
       const response = await fetch(`${API_BASE}/api/leases`);
       if (!response.ok) {
         throw new Error('Failed to load leases');
       }
-      const payload = (await response.json()) as { data: Lease[] };
-      return payload.data;
+      const payload = (await response.json()) as { data?: Lease[] };
+      return payload.data ?? [];
     },
     refetchInterval: 30_000
   });
 
   const isLoading = deploymentsLoading || leasesLoading;
 
-  if (isLoading && !deployments) {
+  if (isLoading && deployments.length === 0 && leases.length === 0) {
     return <HomeSkeleton />;
   }
 
-  const activeDeployments = deployments?.filter((d) => d.status === 'ACTIVE') || [];
-  const openDeployments = deployments?.filter((d) => d.status === 'OPEN') || [];
-  const activeLeases = leases?.filter((l) => l.status === 'ACTIVE') || [];
+  const activeDeployments = deployments.filter((d) => d.status === 'ACTIVE');
+  const openDeployments = deployments.filter((d) => d.status === 'OPEN');
+  const activeLeases = leases.filter((l) => l.status === 'ACTIVE');
+  const activeLeaseCounts = activeLeases.reduce<Map<string, number>>((counts, lease) => {
+    counts.set(lease.deploymentId, (counts.get(lease.deploymentId) ?? 0) + 1);
+    return counts;
+  }, new Map());
   const totalSpending = activeLeases.reduce((sum, lease) => sum + lease.pricePerBlock * 720, 0); // ~720 blocks per day
 
   return (
@@ -82,7 +112,7 @@ export default function HomePage() {
           className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"
         >
           <StatCard label="Active Deployments" value={activeDeployments.length} />
-          <StatCard label="Open Bids" value={openDeployments.reduce((sum, d) => sum + d.bids.length, 0)} />
+          <StatCard label="Open Bids" value={openDeployments.reduce((sum, deployment) => sum + deployment.bidCount, 0)} />
           <StatCard label="Active Leases" value={activeLeases.length} />
           <StatCard label="Monthly Spending" value={`${totalSpending.toFixed(2)} CNT`} />
         </motion.div>
@@ -95,7 +125,7 @@ export default function HomePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.2 }}
           >
-            <Card title="Active Deployments" subtitle={`${activeDeployments.length} running`}>
+            <Card title="Active Deployments" description={`${activeDeployments.length} running`}>
               <div className="space-y-3">
                 {activeDeployments.length === 0 ? (
                   <p className="text-sm text-text-muted">No active deployments</p>
@@ -109,9 +139,9 @@ export default function HomePage() {
                     >
                       <div className="flex-1">
                         <p className="font-mono text-sm font-semibold text-text-primary">{deployment.id}</p>
-                        <p className="text-xs text-text-muted">{deployment.leases.length} lease(s)</p>
+                        <p className="text-xs text-text-muted">{activeLeaseCounts.get(deployment.id) ?? deployment.leaseCount} lease(s)</p>
                       </div>
-                      <Badge type="active">Active</Badge>
+                      <Badge variant="active">Active</Badge>
                     </motion.div>
                   ))
                 )}
@@ -132,7 +162,7 @@ export default function HomePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.3 }}
           >
-            <Card title="Pending Bids" subtitle={`${openDeployments.reduce((sum, d) => sum + d.bids.length, 0)} waiting`}>
+            <Card title="Pending Bids" description={`${openDeployments.reduce((sum, deployment) => sum + deployment.bidCount, 0)} waiting`}>
               <div className="space-y-3">
                 {openDeployments.length === 0 ? (
                   <p className="text-sm text-text-muted">No deployments with pending bids</p>
@@ -146,9 +176,9 @@ export default function HomePage() {
                     >
                       <div className="flex-1">
                         <p className="font-mono text-sm font-semibold text-text-primary">{deployment.id}</p>
-                        <p className="text-xs text-text-muted">{deployment.bids.length} bid(s) received</p>
+                        <p className="text-xs text-text-muted">{deployment.bidCount} bid(s) received</p>
                       </div>
-                      <Badge type="pending">Pending</Badge>
+                      <Badge variant="pending">Pending</Badge>
                     </motion.div>
                   ))
                 )}

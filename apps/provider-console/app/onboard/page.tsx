@@ -2,16 +2,14 @@
 
 import '@rainbow-me/rainbowkit/styles.css';
 
-import { RainbowKitProvider, ConnectButton, getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Badge, Button, Card, Spinner } from '@comnetish/ui';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import type { Hex } from 'viem';
-import { http, WagmiProvider, useAccount, useSendTransaction, useSignMessage } from 'wagmi';
-import { mainnet, sepolia } from 'wagmi/chains';
+import { useAccount, useSendTransaction, useSignMessage } from 'wagmi';
 
 type Step = 1 | 2 | 3 | 4;
 type OsType = 'mac' | 'windows' | 'linux';
@@ -38,7 +36,6 @@ type CheckItem = {
   helperText?: string;
 };
 
-const queryClient = new QueryClient();
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const REGISTRATION_MODE = process.env.NEXT_PUBLIC_PROVIDER_REGISTRATION_MODE ?? 'blockchain';
 
@@ -1246,21 +1243,6 @@ export default function ProviderOnboardPage() {
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => setIsMounted(true), []);
 
-  const wagmiConfig = useMemo(
-    () =>
-      getDefaultConfig({
-        appName: 'Comnetish Provider Console',
-        projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || 'comnetish-demo-project-id',
-        chains: [mainnet, sepolia],
-        transports: {
-          [mainnet.id]: http(),
-          [sepolia.id]: http()
-        },
-        ssr: false
-      }),
-    []
-  );
-
   if (!isMounted) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-brand-bg">
@@ -1269,13 +1251,5 @@ export default function ProviderOnboardPage() {
     );
   }
 
-  return (
-    <WagmiProvider config={wagmiConfig}>
-      <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider>
-          <OnboardFlow />
-        </RainbowKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
-  );
+  return <OnboardFlow />;
 }

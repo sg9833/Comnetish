@@ -24,7 +24,7 @@ ai.post('/generate-sdl', zValidator('json', generateSDLRequestSchema), async (c)
     `User request: ${prompt}`
   ]
     .filter(Boolean)
-    .join('\\n');
+    .join('\n');
 
   const response = await fetch(env.ANTHROPIC_API_URL, {
     method: 'POST',

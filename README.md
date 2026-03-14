@@ -6,25 +6,30 @@ Comnetish is a decentralized cloud compute marketplace. Tenants describe workloa
 
 This monorepo includes the full product surface: tenant console, provider console, marketing website, REST API, chain client SDK, smart contracts, and an AI agent service.
 
+For local development today, the live app runtime is the tenant console + provider console + API + PostgreSQL. The chain fork, contracts, and `packages/chain-client` are optional subsystems that are not yet wired into the default request path used by the consoles and API.
+
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────┐       ┌─────────────────────────┐
-│     apps/console        │──────▶│      services/api        │
-│  Tenant deploy/dash     │       │  Bun + Hono + Prisma     │
-└─────────────────────────┘       └────────────┬────────────┘
-                                               │
-┌─────────────────────────┐       ┌────────────▼────────────┐
-│  apps/provider-console  │──────▶│  packages/chain-client  │
-│  Provider onboarding    │       │  Typed Cosmos SDK client │
-└─────────────────────────┘       └────────────┬────────────┘
-                                               │
-┌─────────────────────────┐       ┌────────────▼────────────┐
-│     apps/website        │       │      contracts/         │
-│   Astro marketing site  │       │   Hardhat + Solidity    │
-└─────────────────────────┘       └─────────────────────────┘
+┌─────────────────────────┐       ┌─────────────────────────┐       ┌─────────────────────────┐
+│     apps/console        │──────▶│      services/api        │──────▶│       PostgreSQL        │
+│  Tenant deploy/dash     │       │  Bun + Hono + Prisma     │       │  Marketplace state      │
+└─────────────────────────┘       └─────────────────────────┘       └─────────────────────────┘
+             ▲                                 ▲
+             │                                 │
+┌─────────────────────────┐                    │
+│  apps/provider-console  │────────────────────┘
+│  Provider onboarding    │
+└─────────────────────────┘
+
+Optional / not wired into the default local runtime path:
+
+┌─────────────────────────┐       ┌─────────────────────────┐       ┌─────────────────────────┐
+│     apps/website        │       │  packages/chain-client  │       │      contracts/         │
+│   Astro marketing site  │       │  Typed Cosmos SDK client │       │   Hardhat + Solidity    │
+└─────────────────────────┘       └─────────────────────────┘       └─────────────────────────┘
 ```
 
 ---
@@ -68,9 +73,9 @@ This opens 4 terminal windows, one per service.
 
 | Service          | URL                   | Description                        |
 | ---------------- | --------------------- | ---------------------------------- |
-| Tenant Console   | http://localhost:3002 | Create and manage deployments      |
-| Provider Console | http://localhost:3001 | Register and manage provider nodes |
-| API              | http://localhost:3000 | REST API (Hono + Prisma)           |
+| Tenant Console   | http://localhost:3000 | Create and manage deployments      |
+| Provider Console | http://localhost:3002 | Register and manage provider nodes |
+| API              | http://localhost:3001 | REST API (Hono + Prisma)           |
 | AI Agent         | http://localhost:3010 | SDL generation and inference       |
 | Website          | http://localhost:4321 | Marketing site (Astro)             |
 
@@ -116,17 +121,17 @@ pnpm prisma db seed
 ### 4. Start services individually
 
 ```bash
-# Terminal 1 — API (port 3000)
-cd services/api && API_PORT=3000 bun run src/index.ts
+# Terminal 1 — API (port 3001)
+cd services/api && API_PORT=3001 bun run src/index.ts
 
 # Terminal 2 — AI Agent (port 3010)
 cd services/ai-agent && pnpm build && pnpm start
 
-# Terminal 3 — Provider Console (port 3001)
-cd apps/provider-console && pnpm dev
+# Terminal 3 — Tenant Console (port 3000)
+cd apps/console && PORT=3000 pnpm dev
 
-# Terminal 4 — Tenant Console (port 3002)
-cd apps/console && PORT=3002 pnpm dev
+# Terminal 4 — Provider Console (port 3002)
+cd apps/provider-console && PORT=3002 pnpm dev
 
 # Terminal 5 (optional) — Website (port 4321)
 cd apps/website && pnpm dev
@@ -149,7 +154,7 @@ Start the API bound to all network interfaces:
 
 ```bash
 cd services/api
-API_HOST=0.0.0.0 API_PORT=3000 bun run src/index.ts
+API_HOST=0.0.0.0 API_PORT=3001 bun run src/index.ts
 ```
 
 Find your local IP:
@@ -171,7 +176,7 @@ pnpm install
 2. Create `apps/provider-console/.env.local`:
 
 ```env
-NEXT_PUBLIC_API_URL=http://<YOUR_LAPTOP_IP>:3000
+NEXT_PUBLIC_API_URL=http://<YOUR_LAPTOP_IP>:3001
 ```
 
 3. Start the provider console:
@@ -181,7 +186,7 @@ cd apps/provider-console
 pnpm dev
 ```
 
-4. Open `http://localhost:3001` → click **Register as Provider** → complete the 4-step onboarding.
+4. Open `http://localhost:3002` → click **Register as Provider** → complete the 4-step onboarding.
 
 ---
 
@@ -222,6 +227,7 @@ chmod +x scripts/setup-provider-fork.sh
 ```
 
 > **Note:** This requires Go 1.21+ and Docker. It is not required for running the console apps and API locally.
+> The default console/API workflow still persists marketplace state in PostgreSQL; these chain scripts are currently separate experimentation tooling, not part of the main local runtime path.
 
 ---
 
@@ -229,13 +235,13 @@ chmod +x scripts/setup-provider-fork.sh
 
 All variables are documented in `.env.example`. Key groups:
 
-| Group     | Variables                                                                                   |
-| --------- | ------------------------------------------------------------------------------------------- |
-| API       | `API_PORT`, `API_HOST`, `API_CORS_ORIGIN`, `DATABASE_URL`                                   |
-| Consoles  | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_CHAIN_RPC_URL`, `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID` |
-| AI Agent  | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`                                                      |
-| Contracts | `PRIVATE_KEY`, `SEPOLIA_RPC_URL`                                                            |
-| Website   | `PUBLIC_SITE_URL`, `PUBLIC_CONSOLE_URL`                                                     |
+| Group     | Variables                                                                                              |
+| --------- | ------------------------------------------------------------------------------------------------------ |
+| API       | `API_PORT`, `API_HOST`, `API_CORS_ORIGIN`, `DATABASE_URL`                                              |
+| Consoles  | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_CHAIN_RPC_URL` (optional), `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID` |
+| AI Agent  | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`                                                                 |
+| Contracts | `PRIVATE_KEY`, `SEPOLIA_RPC_URL`                                                                       |
+| Website   | `PUBLIC_SITE_URL`, `PUBLIC_CONSOLE_URL`                                                                |
 
 Never commit populated `.env` files. All `.env.*` files are gitignored by default.
 
@@ -252,7 +258,7 @@ Never commit populated `.env` files. All `.env.*` files are gitignored by defaul
 | API               | Bun, Hono, Prisma, Zod, PostgreSQL                                |
 | AI Agent          | Bun + TypeScript                                                  |
 | Smart Contracts   | Hardhat, Solidity                                                 |
-| Chain Integration | Cosmos SDK patterns, `@comnetish/chain-client`                    |
+| Chain Tooling     | Cosmos SDK patterns, `@comnetish/chain-client` (optional today)   |
 | Shared UI         | `@comnetish/ui` component library                                 |
 
 ---
@@ -263,9 +269,9 @@ Never commit populated `.env` files. All `.env.*` files are gitignored by defaul
 - [ ] `.env` and `services/api/.env.local` configured
 - [ ] Database created and migrations run (`prisma migrate dev`)
 - [ ] Seed data present (`prisma db seed`)
-- [ ] API responding at `http://localhost:3000/api/stats`
-- [ ] Tenant console live at `http://localhost:3002`
-- [ ] Provider console live at `http://localhost:3001`
+- [ ] API responding at `http://localhost:3001/api/stats`
+- [ ] Tenant console live at `http://localhost:3000`
+- [ ] Provider console live at `http://localhost:3002`
 - [ ] At least one deployment created and visible in dashboard
 - [ ] Provider registered and visible in map
 

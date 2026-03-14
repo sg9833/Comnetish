@@ -18,8 +18,12 @@ const app = new Hono();
 const { upgradeWebSocket, websocket } = createBunWebSocket();
 
 const wsClients = new Set<{ send: (message: string) => void }>();
+const wsDeploymentClients = new Map<string, Set<{ send: (message: string) => void }>>();
 
-app.use('*', cors({ origin: env.API_CORS_ORIGIN }));
+// Support comma-separated origins for local multi-machine testing
+const corsOrigins = env.API_CORS_ORIGIN.split(',').map((o) => o.trim());
+const corsOrigin = corsOrigins.length === 1 ? (corsOrigins[0] ?? env.API_CORS_ORIGIN) : corsOrigins;
+app.use('*', cors({ origin: corsOrigin }));
 app.use('*', requestLogger);
 
 app.get('/health', (c) =>
@@ -50,6 +54,36 @@ app.get(
   }))
 );
 
+app.get(
+  '/ws/deployments/:id/logs',
+  upgradeWebSocket((c) => {
+    const deploymentId = c.req.param('id') ?? '';
+    return {
+      onOpen(_, ws) {
+        const client = ws as unknown as { send: (message: string) => void };
+        if (!wsDeploymentClients.has(deploymentId)) {
+          wsDeploymentClients.set(deploymentId, new Set());
+        }
+        wsDeploymentClients.get(deploymentId)!.add(client);
+        ws.send(
+          JSON.stringify({
+            type: 'connected',
+            ts: new Date().toISOString(),
+            deploymentId
+          })
+        );
+      },
+      onClose(_, ws) {
+        const client = ws as unknown as { send: (message: string) => void };
+        wsDeploymentClients.get(deploymentId)?.delete(client);
+        if (wsDeploymentClients.get(deploymentId)?.size === 0) {
+          wsDeploymentClients.delete(deploymentId);
+        }
+      }
+    };
+  })
+);
+
 setInterval(async () => {
   if (wsClients.size === 0) {
     return;
@@ -73,6 +107,56 @@ setInterval(async () => {
     client.send(event);
   }
 }, 5000);
+
+// Broadcast structured log events to per-deployment WebSocket subscribers.
+setInterval(async () => {
+  if (wsDeploymentClients.size === 0) {
+    return;
+  }
+
+  for (const [deploymentId, clients] of wsDeploymentClients.entries()) {
+    if (clients.size === 0) {
+      continue;
+    }
+
+    const deployment = await prisma.deployment.findUnique({
+      where: { id: deploymentId },
+      include: { leases: { where: { status: 'ACTIVE' }, take: 1 } }
+    });
+
+    if (!deployment) {
+      continue;
+    }
+
+    const lease = (deployment as any).leases?.[0];
+    const candidates = lease
+      ? [
+          `[orchestrator] lease ${lease.id.slice(0, 8)} active — pricePerBlock=${lease.pricePerBlock}`,
+          `[runtime] container health probe ok`,
+          `[payment] escrow balance evaluated`,
+          `[scheduler] block reconciliation complete`
+        ]
+      : [
+          `[orchestrator] deployment ${deploymentId.slice(0, 8)} awaiting lease`,
+          `[marketplace] bid evaluation in progress`,
+          `[runtime] provider not yet assigned`
+        ];
+
+    const message = candidates[Math.floor(Math.random() * candidates.length)] ?? '[runtime] tick';
+    const level = message.includes('awaiting') || message.includes('progress') ? 'warning' : 'info';
+
+    const event = JSON.stringify({
+      type: 'log',
+      ts: new Date().toISOString(),
+      level,
+      message
+    });
+
+    for (const client of clients) {
+      client.send(event);
+    }
+  }
+}, 3000);
 
 app.onError((error, c) => {
   if (error instanceof HttpError) {
@@ -113,8 +197,9 @@ const port = env.API_PORT;
 logger.info('api.starting', {
   host: env.API_HOST,
   port,
-  corsOrigin: env.API_CORS_ORIGIN,
+  corsOrigins,
   wsPath: '/ws',
+  wsLogsPath: '/ws/deployments/:id/logs',
   health: '/health'
 });
 

@@ -11,8 +11,10 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${syne.variable} ${jetBrainsMono.variable}`}>
-        <Providers>{children}</Providers>
+      <body className={`${syne.variable} ${jetBrainsMono.variable} bg-background text-text-primary`}>
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   );

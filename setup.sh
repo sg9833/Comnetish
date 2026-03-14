@@ -331,8 +331,8 @@ if [ "$START_SERVICES" = true ]; then
     echo ""
 
     # API Service
-    print_info "Starting API Service on http://localhost:3000"
-    osascript -e "tell app \"Terminal\" to do script \"cd '$PROJECT_ROOT/services/api' && pnpm build && pnpm start\"" &
+    print_info "Starting API Service on http://localhost:3001"
+    osascript -e "tell app \"Terminal\" to do script \"cd '$PROJECT_ROOT/services/api' && API_PORT=3001 pnpm build && API_PORT=3001 pnpm start\"" &
     sleep 2
 
     # AI Agent Service
@@ -341,13 +341,13 @@ if [ "$START_SERVICES" = true ]; then
     sleep 2
 
     # Main Console
-    print_info "Starting Main Console on http://localhost:3000 (or 3002)"
-    osascript -e "tell app \"Terminal\" to do script \"cd '$PROJECT_ROOT/apps/console' && pnpm dev\"" &
+    print_info "Starting Main Console on http://localhost:3000"
+    osascript -e "tell app \"Terminal\" to do script \"cd '$PROJECT_ROOT/apps/console' && PORT=3000 pnpm dev\"" &
     sleep 2
 
     # Provider Console
-    print_info "Starting Provider Console on http://localhost:3001"
-    osascript -e "tell app \"Terminal\" to do script \"cd '$PROJECT_ROOT/apps/provider-console' && pnpm dev\"" &
+    print_info "Starting Provider Console on http://localhost:3002"
+    osascript -e "tell app \"Terminal\" to do script \"cd '$PROJECT_ROOT/apps/provider-console' && PORT=3002 pnpm dev\"" &
     sleep 2
 
     echo ""
@@ -355,7 +355,8 @@ if [ "$START_SERVICES" = true ]; then
     echo ""
     print_info "Once all services show 'Ready' or 'listening' messages:"
     echo "  - Main Console:     http://localhost:3000"
-    echo "  - Provider Console: http://localhost:3001"
+    echo "  - Provider Console: http://localhost:3002"
+    echo "  - API Service:      http://localhost:3001/api/providers"
     echo "  - AI Agent:         http://localhost:3010"
 
 else
@@ -392,13 +393,13 @@ echo ""
 print_info "Once services are running, test them:"
 echo ""
 echo "  # Test API"
-echo "  curl http://localhost:3000/api/providers | head -20"
+echo "  curl http://localhost:3001/api/providers | head -20"
 echo ""
 echo "  # Test AI Agent"
 echo "  curl http://localhost:3010/health"
 echo ""
 echo "  # Test database has data"
-echo "  curl http://localhost:3000/api/deployments"
+echo "  curl http://localhost:3001/api/deployments"
 echo ""
 
 print_header "Documentation"

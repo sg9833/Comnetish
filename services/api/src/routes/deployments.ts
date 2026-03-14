@@ -36,6 +36,9 @@ deployments.get('/', zValidator('query', deploymentQuerySchema), async (c) => {
       ...(query.status ? { status: query.status } : {}),
       ...(query.tenantAddress ? { tenantAddress: query.tenantAddress } : {})
     },
+    include: {
+      _count: { select: { bids: true } }
+    },
     orderBy: { createdAt: 'desc' }
   });
 

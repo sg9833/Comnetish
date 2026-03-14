@@ -79,7 +79,7 @@ Starts all 4 services in separate Terminal windows on macOS.
 
 Opens 4 new Terminal windows and starts:
 
-1. **Terminal 1**: API Service (port 3000)
+1. **Terminal 1**: API Service (port 3001)
 
    ```
    cd services/api && pnpm build && pnpm start
@@ -91,13 +91,13 @@ Opens 4 new Terminal windows and starts:
    cd services/ai-agent && pnpm start
    ```
 
-3. **Terminal 3**: Main Console (port 3000/3002)
+3. **Terminal 3**: Main Console (port 3000)
 
    ```
    cd apps/console && pnpm dev
    ```
 
-4. **Terminal 4**: Provider Console (port 3001)
+4. **Terminal 4**: Provider Console (port 3002)
    ```
    cd apps/provider-console && pnpm dev
    ```
@@ -113,7 +113,7 @@ Opens 4 new Terminal windows and starts:
 Watch for each service to print a "Ready" message:
 
 ```
-Terminal 1: listening on http://0.0.0.0:3000
+Terminal 1: listening on http://0.0.0.0:3001
 Terminal 2: @comnetish/ai-agent listening on :3010
 Terminal 3: ✓ Ready in 2.3s
 Terminal 4: ✓ Ready in 2.1s
@@ -122,8 +122,8 @@ Terminal 4: ✓ Ready in 2.1s
 ### Access Points
 
 - **Main Console (Tenant UI)**: http://localhost:3000
-- **Provider Console (Provider UI)**: http://localhost:3001
-- **API**: http://localhost:3000/api/providers
+- **Provider Console (Provider UI)**: http://localhost:3002
+- **API**: http://localhost:3001/api/providers
 - **AI Agent**: http://localhost:3010/health
 
 ### Time Required
@@ -230,7 +230,7 @@ Failed: 0
 **Error: Cannot reach API**
 
 ```
-❌ FAIL: Cannot reach API at http://localhost:3000
+❌ FAIL: Cannot reach API at http://localhost:3001
 ⚠️  Make sure the API service is running in Terminal 1
 ```
 
@@ -292,7 +292,7 @@ Wait for: `✅ All tests passed!`
 Open in browser:
 
 - Main Console: **http://localhost:3000**
-- Provider Console: **http://localhost:3001**
+- Provider Console: **http://localhost:3002**
 
 **Total time: ~5-7 minutes** ⏱️
 
@@ -378,7 +378,7 @@ Check if services failed to start:
 Make sure Terminal 1 shows this output:
 
 ```
-listening on http://0.0.0.0:3000
+listening on http://0.0.0.0:3001
 ```
 
 If not, check for errors in Terminal 1 and restart it.

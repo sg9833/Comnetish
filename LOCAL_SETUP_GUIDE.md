@@ -12,10 +12,10 @@ Before starting, verify you have these installed:
 ```bash
 # Check Node/Bun
 bun --version        # Should be v1.0+
-node --version       # Should be v18+
+node --version       # Should be v20+
 
 # Check pnpm
-pnpm --version       # Should be v8+
+pnpm --version       # Should be v9+
 
 # Check PostgreSQL
 psql --version       # Should be installed and running
@@ -27,7 +27,7 @@ git --version
 **If any are missing**, install them:
 
 - **Bun**: https://bun.sh (latest)
-- **Node**: https://nodejs.org (v18+)
+- **Node**: https://nodejs.org (v20+)
 - **pnpm**: `npm install -g pnpm`
 - **PostgreSQL**: https://www.postgresql.org/download/
 
@@ -56,6 +56,8 @@ pnpm install
 ✓ Packages in scope: @comnetish/ui, @comnetish/types, @comnetish/chain-client, console, provider-console, api, ai-agent
 ✓ Hoisted 247 packages
 ```
+
+`@comnetish/chain-client` is installed with the workspace, but the default local console/API workflow still runs against PostgreSQL. You do not need the optional chain fork or contracts stack to bring up the app locally.
 
 ---
 
@@ -166,10 +168,10 @@ pnpm start
 **Expected output:**
 
 ```
-listening on http://0.0.0.0:3000
+listening on http://0.0.0.0:3001
 ```
 
-✅ **API is running on: http://localhost:3000**
+✅ **API is running on: http://localhost:3001**
 
 ### Terminal 2: AI Agent Service
 
@@ -224,10 +226,10 @@ pnpm dev
 
 ```
 ▲ Next.js 14.x.x
-- Local:        http://localhost:3001 (or next available)
+- Local:        http://localhost:3002
 ```
 
-✅ **Provider Console is running on: http://localhost:3001** (or check terminal for actual port)
+✅ **Provider Console is running on: http://localhost:3002**
 
 ---
 
@@ -237,7 +239,7 @@ Open a 5th terminal and test:
 
 ```bash
 # Test API service
-curl http://localhost:3000/api/providers | head -20
+curl http://localhost:3001/api/providers | head -20
 
 # Test AI service
 curl http://localhost:3010/health
@@ -258,11 +260,11 @@ curl http://localhost:3010/health
 
 ### Provider Console
 
-**URL**: http://localhost:3001 (or the port shown in Terminal 4)
+**URL**: http://localhost:3002
 
 ### API Documentation
 
-**Base URL**: http://localhost:3000/api
+**Base URL**: http://localhost:3001/api
 **Available endpoints**:
 
 - `/api/providers` - List providers
@@ -364,7 +366,7 @@ http://localhost:3000/dashboard
 **1. Go to Provider Console**
 
 ```
-http://localhost:3001
+http://localhost:3002
 ```
 
 **What you should see:**
@@ -433,19 +435,19 @@ Open a terminal and test endpoints:
 
 ```bash
 # 1. Get list of providers
-curl http://localhost:3000/api/providers | jq
+curl http://localhost:3001/api/providers | jq
 
 # 2. Get list of deployments
-curl http://localhost:3000/api/deployments | jq
+curl http://localhost:3001/api/deployments | jq
 
 # 3. Get list of bids
-curl http://localhost:3000/api/bids?deploymentId=deploy-comnetish1tenantdemoa99f0u29k3f-0 | jq
+curl http://localhost:3001/api/bids?deploymentId=deploy-comnetish1tenantdemoa99f0u29k3f-0 | jq
 
 # 4. Get provider stats
-curl http://localhost:3000/api/providers/me/stats | jq
+curl http://localhost:3001/api/providers/me/stats | jq
 
 # 5. Get active leases
-curl http://localhost:3000/api/leases?status=ACTIVE | jq
+curl http://localhost:3001/api/leases?status=ACTIVE | jq
 
 # 6. Test AI endpoints
 curl http://localhost:3010/models | jq
@@ -468,33 +470,33 @@ This tests the complete marketplace flow:
 
 ```bash
 # Step 1: Get a deployment ID
-DEPLOYMENT_ID=$(curl -s http://localhost:3000/api/deployments | jq -r '.data[0].id')
+DEPLOYMENT_ID=$(curl -s http://localhost:3001/api/deployments | jq -r '.data[0].id')
 echo "Deployment: $DEPLOYMENT_ID"
 
 # Step 2: Get a provider ID
-PROVIDER_ID=$(curl -s http://localhost:3000/api/providers | jq -r '.data[0].id')
+PROVIDER_ID=$(curl -s http://localhost:3001/api/providers | jq -r '.data[0].id')
 echo "Provider: $PROVIDER_ID"
 
 # Step 3: Create a bid
-BID_RESPONSE=$(curl -s -X POST http://localhost:3000/api/bids \
+BID_RESPONSE=$(curl -s -X POST http://localhost:3001/api/bids \
   -H "Content-Type: application/json" \
   -d "{\"deploymentId\":\"$DEPLOYMENT_ID\",\"providerId\":\"$PROVIDER_ID\",\"price\":1.5}")
 echo "Bid created:"
 echo $BID_RESPONSE | jq
 
 # Step 4: Create a lease from that bid
-LEASE_RESPONSE=$(curl -s -X POST http://localhost:3000/api/leases \
+LEASE_RESPONSE=$(curl -s -X POST http://localhost:3001/api/leases \
   -H "Content-Type: application/json" \
   -d "{\"deploymentId\":\"$DEPLOYMENT_ID\",\"providerId\":\"$PROVIDER_ID\",\"pricePerBlock\":0.15}")
 echo "Lease created:"
 echo $LEASE_RESPONSE | jq
 
 # Step 5: Verify deployment is now ACTIVE
-curl -s http://localhost:3000/api/deployments/$DEPLOYMENT_ID | jq '.data.status'
+curl -s http://localhost:3001/api/deployments/$DEPLOYMENT_ID | jq '.data.status'
 # Should show: "ACTIVE"
 
 # Step 6: Verify lease appears in provider console
-curl -s http://localhost:3000/api/providers/me/leases | jq '.data | length'
+curl -s http://localhost:3001/api/providers/me/leases | jq '.data | length'
 # Should show more leases than before
 ```
 
@@ -538,14 +540,14 @@ Go through each page and verify:
 
 ### Provider Console Pages
 
-- [ ] **Home**: http://localhost:3001
+- [ ] **Home**: http://localhost:3002
   - [ ] Stats cards showing data
   - [ ] Active leases section
   - [ ] Resources bars visible
   - [ ] Pending bids section
   - [ ] Accept/Decline buttons present
 
-- [ ] **Onboarding**: http://localhost:3001/onboard
+- [ ] **Onboarding**: http://localhost:3002/onboard
   - [ ] System check items visible
   - [ ] Install commands displayed
   - [ ] Smooth animations
@@ -599,7 +601,7 @@ pnpm build
 pnpm start
 
 # Check it's listening
-curl http://localhost:3000/api/providers
+curl http://localhost:3001/api/providers
 ```
 
 ### Issue: Pages Show "Connect Wallet"
@@ -650,7 +652,7 @@ Test that pages load fast:
 
 ```bash
 # Check API response time
-time curl http://localhost:3000/api/providers > /dev/null
+time curl http://localhost:3001/api/providers > /dev/null
 
 # Should be < 100ms
 
@@ -671,7 +673,7 @@ time curl http://localhost:3000/api/providers > /dev/null
 │                                                           │
 │  PostgreSQL (Port 5432)  ← Database                      │
 │          ↕                                                │
-│  API Service (Port 3000) ← REST API                      │
+│  API Service (Port 3001) ← REST API                      │
 │      ↑         ↑                                         │
 │      │         └── Prisma ORM                            │
 │      │                                                   │
@@ -680,7 +682,7 @@ time curl http://localhost:3000/api/providers > /dev/null
 │      │            - Create Deployments                   │
 │      │            - View Bids & Leases                   │
 │      │                                                   │
-│      ├─────────────Provider Console (Port 3001)         │
+│      ├─────────────Provider Console (Port 3002)         │
 │      │            - Provider Dashboard                   │
 │      │            - Active Leases                        │
 │      │            - Pending Bids                         │
@@ -713,7 +715,7 @@ cd apps/provider-console && pnpm dev
 cd /Users/garinesaiajay/projects/Comnetish
 
 # Test APIs
-curl http://localhost:3000/api/providers | jq
+curl http://localhost:3001/api/providers | jq
 curl http://localhost:3010/health | jq
 
 # Database operations
@@ -730,7 +732,7 @@ pnpm prisma db seed # Re-seed if needed
 - [ ] All 4 services running in separate terminals
 - [ ] No error messages in terminals
 - [ ] Main Console accessible (http://localhost:3000)
-- [ ] Provider Console accessible (http://localhost:3001)
+- [ ] Provider Console accessible (http://localhost:3002)
 - [ ] Dashboard shows data
 - [ ] Provider console shows data
 - [ ] API endpoints respond (curl tests pass)

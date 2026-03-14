@@ -1,7 +1,7 @@
 'use client';
 
 import { Badge, Button, Card, StatCard } from '@comnetish/ui';
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { animate, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -125,6 +125,7 @@ function deploymentTypeFromSDL(sdl: string): string {
 
 function DashboardContent() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const providersQuery = useQuery({
     queryKey: ['providers'],
@@ -151,6 +152,17 @@ function DashboardContent() {
   });
 
   const isLoading = providersQuery.isLoading || deploymentsQuery.isLoading || leasesQuery.isLoading || statsQuery.isLoading;
+
+  const closeMutation = useMutation({
+    mutationFn: async (deploymentId: string) => {
+      const res = await fetch(`${API_BASE}/api/deployments/${deploymentId}/close`, { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to close deployment');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deployments'] });
+    }
+  });
 
   const providers = providersQuery.data ?? [];
   const deployments = deploymentsQuery.data ?? [];
@@ -342,8 +354,9 @@ function DashboardContent() {
               </Button>
             </div>
           ) : (
-            deployments.map((item, index) => {
-              const estimatedCost = ((index + 1) * 0.83 + 1.2).toFixed(2);
+            deployments.map((item) => {
+              const activeLease = leases.find((l) => l.deploymentId === item.id && l.status === 'ACTIVE');
+              const estimatedCost = activeLease ? (activeLease.pricePerBlock * 120).toFixed(4) : null;
               return (
                 <motion.div
                   key={item.id}
@@ -363,14 +376,19 @@ function DashboardContent() {
                     </div>
                     <div>
                       <p className="font-mono text-xs uppercase text-text-muted">Cost / hour</p>
-                      <p className="font-mono text-sm text-brand-primary">{estimatedCost} CNT</p>
+                      <p className="font-mono text-sm text-brand-primary">{estimatedCost ? `${estimatedCost} CNT` : '—'}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button variant="secondary" className="px-3 py-2 text-sm" onClick={() => router.push(`/deployments/${item.id}`)}>
                         View Logs
                       </Button>
-                      <Button variant="ghost" className="px-3 py-2 text-sm" onClick={() => router.push(`/deployments/${item.id}`)}>
-                        Close
+                      <Button
+                        variant="ghost"
+                        className="px-3 py-2 text-sm"
+                        onClick={() => closeMutation.mutate(item.id)}
+                        disabled={closeMutation.isPending || item.status === 'CLOSED'}
+                      >
+                        {closeMutation.isPending ? 'Closing…' : 'Close'}
                       </Button>
                     </div>
                   </div>
@@ -385,28 +403,12 @@ function DashboardContent() {
 }
 
 export default function DashboardPage() {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            refetchInterval: REFRESH_INTERVAL,
-            staleTime: 10_000,
-            retry: 2,
-            retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000)
-          }
-        }
-      })
-  );
-
   return (
-    <QueryClientProvider client={queryClient}>
-      <main className="relative min-h-screen bg-background px-6 py-8 text-text-primary">
-        <div className="cn-noise-overlay" />
-        <div className="relative z-10 mx-auto max-w-7xl">
-          <DashboardContent />
-        </div>
-      </main>
-    </QueryClientProvider>
+    <main className="relative min-h-screen bg-background px-6 py-8 text-text-primary">
+      <div className="cn-noise-overlay" />
+      <div className="relative z-10 mx-auto max-w-7xl">
+        <DashboardContent />
+      </div>
+    </main>
   );
 }

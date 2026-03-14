@@ -4,17 +4,17 @@
 
 :root {
   color-scheme: dark;
-  --cn-primary: #00ffc2;
-  --cn-secondary: #7b61ff;
-  --cn-warning: #ff6b35;
-  --cn-background: #0d1117;
-  --cn-surface: #1c2128;
-  --cn-text-primary: #e6edf3;
-  --cn-text-muted: #8b949e;
+  --cn-primary: #3b82f6;
+  --cn-secondary: #1d4ed8;
+  --cn-warning: #f59e0b;
+  --cn-background: #0b0f14;
+  --cn-surface: #111827;
+  --cn-text-primary: #e2e8f0;
+  --cn-text-muted: #94a3b8;
   --cn-border: rgba(230, 237, 243, 0.12);
   --cn-surface-glass: rgba(28, 33, 40, 0.64);
-  --cn-glow-primary: 0 0 28px rgba(0, 255, 194, 0.28);
-  --cn-glow-secondary: 0 0 24px rgba(123, 97, 255, 0.24);
+  --cn-glow-primary: 0 0 24px rgba(59, 130, 246, 0.28);
+  --cn-glow-secondary: 0 0 20px rgba(59, 130, 246, 0.18);
 }
 
 body {
@@ -60,7 +60,7 @@ body {
   }
 
   ::selection {
-    background: rgba(0, 255, 194, 0.22);
+    background: rgba(59, 130, 246, 0.24);
     color: var(--cn-text-primary);
   }
 }

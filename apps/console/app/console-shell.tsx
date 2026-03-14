@@ -11,6 +11,7 @@ type ConsoleShellProps = {
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard' },
+  { href: '/deployments', label: 'Deployments' },
   { href: '/map', label: 'Provider Map' },
   { href: '/deploy', label: 'Deploy' }
 ];
@@ -20,7 +21,7 @@ function isActive(pathname: string, href: string) {
     return pathname === '/dashboard' || pathname === '/';
   }
   if (href === '/deploy') {
-    return pathname === '/deploy' || pathname.startsWith('/deploy/') || pathname.startsWith('/deployments/');
+    return pathname === '/deploy' || pathname.startsWith('/deploy/');
   }
   return pathname === href || pathname.startsWith(`${href}/`);
 }

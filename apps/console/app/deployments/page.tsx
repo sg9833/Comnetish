@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 type Deployment = {
   id: string;
@@ -16,6 +16,7 @@ type Deployment = {
   createdAt: string;
   closedAt?: string | null;
   bids?: { id: string }[];
+  _count?: { bids: number };
 };
 
 function deploymentTypeFromSDL(sdl: string): string {
@@ -45,7 +46,7 @@ export default function DeploymentsPage() {
   const statusVariant = (status: string) => {
     if (status === 'ACTIVE') return 'success';
     if (status === 'OPEN') return 'pending';
-    return 'default';
+    return 'error';
   };
 
   return (
@@ -105,7 +106,7 @@ export default function DeploymentsPage() {
                     </div>
                     <div>
                       <p className="font-mono text-xs uppercase text-text-muted">Bids</p>
-                      <p className="font-mono text-sm text-text-primary">{deployment.bids?.length ?? 0}</p>
+                      <p className="font-mono text-sm text-text-primary">{deployment._count?.bids ?? deployment.bids?.length ?? 0}</p>
                     </div>
                     <div>
                       <p className="font-mono text-xs uppercase text-text-muted">Created</p>

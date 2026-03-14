@@ -2,10 +2,10 @@
 
 import { RainbowKitProvider, getDefaultConfig, ConnectButton } from '@rainbow-me/rainbowkit';
 import { Badge, Button, Card, Terminal } from '@comnetish/ui';
-import { QueryClient, QueryClientProvider, useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { http, WagmiProvider, useAccount } from 'wagmi';
 import { mainnet, sepolia } from 'wagmi/chains';
@@ -54,16 +54,6 @@ type ManualFormState = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const USD_PER_CNT = Number(process.env.NEXT_PUBLIC_USD_PER_CNT ?? 0.19);
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5_000,
-      retry: 2,
-      retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 4_000)
-    }
-  }
-});
 
 function StepIndicator({ step }: { step: Step }) {
   const items = [
@@ -146,10 +136,10 @@ function generateSdlLocally(prompt: string): string {
   const port = portMatch ? portMatch[1] : '8080';
 
   const cpuMatch = prompt.match(/(\d+)\s*cpu/i) ?? prompt.match(/(\d+)\s*vcpu/i);
-  const cpu = cpuMatch ? parseInt(cpuMatch[1], 10) : 1;
+  const cpu = cpuMatch?.[1] ? parseInt(cpuMatch[1], 10) : 1;
 
   const ramMatch = prompt.match(/(\d+)\s*gb?\s*ram/i) ?? prompt.match(/(\d+)\s*gb?\s*memory/i) ?? prompt.match(/(\d+)gb/i);
-  const ramGb = ramMatch ? parseInt(ramMatch[1], 10) : 1;
+  const ramGb = ramMatch?.[1] ? parseInt(ramMatch[1], 10) : 1;
 
   let image = 'nginx:alpine';
   let serviceName = 'app';
@@ -228,6 +218,8 @@ function statusBadge(status: Provider['status']) {
 
 function DeployWizard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const providerFromUrl = searchParams.get('provider');
   const { address: walletAddress } = useAccount();
 
   const [step, setStep] = useState<Step>(1);
@@ -348,9 +340,10 @@ function DeployWizard() {
   useEffect(() => {
     const firstProvider = sortedProviders[0];
     if (!selectedProviderId && firstProvider) {
-      setSelectedProviderId(firstProvider.id);
+      const fromUrl = providerFromUrl ? sortedProviders.find((p) => p.id === providerFromUrl) : null;
+      setSelectedProviderId((fromUrl ?? firstProvider).id);
     }
-  }, [selectedProviderId, sortedProviders]);
+  }, [selectedProviderId, sortedProviders, providerFromUrl]);
 
   const [aiUsedFallback, setAiUsedFallback] = useState(false);
 
@@ -750,8 +743,12 @@ function DeployWizard() {
                     </div>
                   ) : (
                     <div className="rounded-lg border border-[rgba(0,255,194,0.1)] bg-surface/60 p-3">
-                      <p className="text-sm text-text-muted">Wallet balance</p>
-                      <p className="font-mono text-brand-primary">1,248.34 CNT</p>
+                      <p className="text-sm text-text-muted">Connected wallet</p>
+                      {walletAddress ? (
+                        <p className="font-mono text-xs text-text-primary">{walletAddress.slice(0, 10)}…{walletAddress.slice(-6)}</p>
+                      ) : (
+                        <div className="mt-1"><ConnectButton /></div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -825,12 +822,10 @@ export default function DeployPage() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <WagmiProvider config={wagmiConfig}>
-        <RainbowKitProvider>
-          <DeployWizard />
-        </RainbowKitProvider>
-      </WagmiProvider>
-    </QueryClientProvider>
+    <WagmiProvider config={wagmiConfig}>
+      <RainbowKitProvider>
+        <DeployWizard />
+      </RainbowKitProvider>
+    </WagmiProvider>
   );
 }

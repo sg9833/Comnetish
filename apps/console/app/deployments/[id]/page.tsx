@@ -1,7 +1,7 @@
 'use client';
 
 import { Badge, Button, Card } from '@comnetish/ui';
-import { QueryClient, QueryClientProvider, useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -63,7 +63,6 @@ type UsagePoint = {
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
-const queryClient = new QueryClient();
 
 function deriveStatus(deployment?: Deployment, lease?: Lease): DeploymentStatus {
   if (!deployment) {
@@ -136,6 +135,7 @@ function formatRelativeMinutes(ts: string) {
 function useDeploymentLogs(deploymentId: string) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [connectionState, setConnectionState] = useState<'connecting' | 'connected' | 'reconnecting' | 'disconnected'>('connecting');
+  const connStateRef = useRef<'connecting' | 'connected' | 'reconnecting' | 'disconnected'>('connecting');
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
@@ -154,12 +154,14 @@ function useDeploymentLogs(deploymentId: string) {
     const connect = () => {
       const url = `${wsBaseUrl(API_BASE)}/ws/deployments/${deploymentId}/logs`;
       setConnectionState(reconnectAttemptRef.current === 0 ? 'connecting' : 'reconnecting');
+      connStateRef.current = reconnectAttemptRef.current === 0 ? 'connecting' : 'reconnecting';
 
       const socket = new WebSocket(url);
       socketRef.current = socket;
 
       socket.onopen = () => {
         reconnectAttemptRef.current = 0;
+        connStateRef.current = 'connected';
         setConnectionState('connected');
       };
 
@@ -193,6 +195,7 @@ function useDeploymentLogs(deploymentId: string) {
         }
 
         setConnectionState('reconnecting');
+        connStateRef.current = 'reconnecting';
         reconnectAttemptRef.current += 1;
         const delay = Math.min(1000 * 2 ** reconnectAttemptRef.current, 12000);
         reconnectTimerRef.current = setTimeout(connect, delay);
@@ -206,7 +209,7 @@ function useDeploymentLogs(deploymentId: string) {
     connect();
 
     const fallbackTimer = setInterval(() => {
-      if (connectionState === 'connected') {
+      if (connStateRef.current === 'connected') {
         return;
       }
 
@@ -224,6 +227,7 @@ function useDeploymentLogs(deploymentId: string) {
 
     return () => {
       destroyedRef.current = true;
+      connStateRef.current = 'disconnected';
       setConnectionState('disconnected');
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
@@ -394,7 +398,11 @@ function DeploymentDetailContent() {
   const image = deployment ? parseSdlValue(deployment.sdl, 'image') : 'loading...';
   const cpu = deployment ? parseSdlValue(deployment.sdl, 'units') : 'N/A';
   const memory = deployment ? parseSdlValue(deployment.sdl, 'size') : 'N/A';
-  const storage = deployment ? parseSdlValue(deployment.sdl, 'storage:\n\s*size') : 'N/A';
+  const storage = (() => {
+    if (!deployment) return 'N/A';
+    const match = deployment.sdl.match(/storage:\s*\n\s*(?:-\s*)?size:\s*([^\n]+)/i);
+    return match?.[1]?.trim() ?? 'N/A';
+  })();
   const liveUrl = status === 'ACTIVE' ? `https://${deploymentId}.comnetish.app` : null;
 
   return (
@@ -608,9 +616,5 @@ function DeploymentDetailContent() {
 }
 
 export default function DeploymentDetailPage() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <DeploymentDetailContent />
-    </QueryClientProvider>
-  );
+  return <DeploymentDetailContent />;
 }
