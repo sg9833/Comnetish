@@ -63,6 +63,7 @@ type UsagePoint = {
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+const DEPLOYMENT_BASE_DOMAIN = process.env.NEXT_PUBLIC_DEPLOYMENT_BASE_DOMAIN?.trim() || null;
 
 function deriveStatus(deployment?: Deployment, lease?: Lease): DeploymentStatus {
   if (!deployment) {
@@ -403,7 +404,7 @@ function DeploymentDetailContent() {
     const match = deployment.sdl.match(/storage:\s*\n\s*(?:-\s*)?size:\s*([^\n]+)/i);
     return match?.[1]?.trim() ?? 'N/A';
   })();
-  const liveUrl = status === 'ACTIVE' ? `https://${deploymentId}.comnetish.app` : null;
+  const liveUrl = status === 'ACTIVE' && DEPLOYMENT_BASE_DOMAIN ? `https://${deploymentId}.${DEPLOYMENT_BASE_DOMAIN}` : null;
 
   return (
     <main className="relative min-h-screen bg-background px-6 py-8 text-text-primary">
@@ -556,7 +557,11 @@ function DeploymentDetailContent() {
                     {liveUrl}
                   </a>
                 ) : (
-                  <p className="text-xs text-text-muted">Available once deployment becomes active</p>
+                  <p className="text-xs text-text-muted">
+                    {status === 'ACTIVE'
+                      ? 'Set NEXT_PUBLIC_DEPLOYMENT_BASE_DOMAIN to display a public deployment URL.'
+                      : 'Available once deployment becomes active'}
+                  </p>
                 )}
               </div>
 

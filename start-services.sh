@@ -10,7 +10,8 @@
 #   ./start-services.sh        # Start all 4 services in new terminals
 #
 # Requirements:
-#   - macOS (uses osascript to open Terminal windows)
+#   - macOS + osascript for multi-terminal window mode
+#   - On non-macOS, falls back to background processes with log files
 #   - All services must already be set up with pnpm install
 #
 ###############################################################################
@@ -24,6 +25,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+LOG_DIR="$PROJECT_ROOT/.logs"
 
 API_PORT=3001
 AI_AGENT_PORT=3010
@@ -46,6 +48,21 @@ print_info() {
 
 print_warning() {
     echo -e "${YELLOW}⚠️  $1${NC}"
+}
+
+start_background() {
+    local name="$1"
+    local workdir="$2"
+    local cmd="$3"
+    local logfile="$LOG_DIR/$name.log"
+
+    mkdir -p "$LOG_DIR"
+    (
+        cd "$workdir"
+        nohup sh -c "$cmd" >"$logfile" 2>&1 &
+        echo $! > "$LOG_DIR/$name.pid"
+    )
+    print_info "Started $name in background (log: $logfile)"
 }
 
 is_port_in_use() {
@@ -78,6 +95,32 @@ check_required_ports() {
 
 print_header "Starting Comnetish Services"
 check_required_ports
+
+USE_MAC_TERMINAL=false
+if [[ "$(uname -s)" == "Darwin" ]] && command -v osascript >/dev/null 2>&1; then
+    USE_MAC_TERMINAL=true
+fi
+
+if [[ "$USE_MAC_TERMINAL" != true ]]; then
+    print_warning "macOS Terminal automation unavailable. Using cross-platform background mode."
+
+    start_background "api" "$PROJECT_ROOT/services/api" "API_PORT=$API_PORT pnpm build && API_PORT=$API_PORT pnpm start"
+    start_background "ai-agent" "$PROJECT_ROOT/services/ai-agent" "AI_AGENT_PORT=$AI_AGENT_PORT pnpm start"
+    start_background "console" "$PROJECT_ROOT/apps/console" "PORT=$CONSOLE_PORT pnpm dev"
+    start_background "provider-console" "$PROJECT_ROOT/apps/provider-console" "PORT=$PROVIDER_CONSOLE_PORT pnpm dev"
+
+    print_header "Services Starting"
+    echo ""
+    print_success "All 4 services started in background mode"
+    echo ""
+    echo "  Main Console:       http://localhost:$CONSOLE_PORT"
+    echo "  Provider Console:   http://localhost:$PROVIDER_CONSOLE_PORT"
+    echo "  API Service:        http://localhost:$API_PORT/api/providers"
+    echo "  AI Agent:           http://localhost:$AI_AGENT_PORT/health"
+    echo ""
+    print_info "Tail logs with: tail -f $LOG_DIR/api.log"
+    exit 0
+fi
 
 # Terminal 1: API Service
 print_info "Terminal 1: Starting API Service..."

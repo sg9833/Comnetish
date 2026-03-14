@@ -7,7 +7,8 @@ import confetti from 'canvas-confetti';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { http, WagmiProvider, useAccount } from 'wagmi';
+import { erc20Abi, parseUnits } from 'viem';
+import { http, WagmiProvider, useAccount, useBalance, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import { mainnet, sepolia } from 'wagmi/chains';
 
 type Step = 1 | 2 | 3;
@@ -54,6 +55,8 @@ type ManualFormState = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const USD_PER_CNT = Number(process.env.NEXT_PUBLIC_USD_PER_CNT ?? 0.19);
+const USDC_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_USDC_TOKEN_ADDRESS as `0x${string}` | undefined;
+const USDC_SPENDER_ADDRESS = process.env.NEXT_PUBLIC_USDC_SPENDER_ADDRESS as `0x${string}` | undefined;
 
 function StepIndicator({ step }: { step: Step }) {
   const items = [
@@ -221,6 +224,8 @@ function DeployWizard() {
   const searchParams = useSearchParams();
   const providerFromUrl = searchParams.get('provider');
   const { address: walletAddress } = useAccount();
+  const { writeContract, data: approvalTxHash, isPending: isSubmittingApproval, error: approvalError } = useWriteContract();
+  const approvalReceipt = useWaitForTransactionReceipt({ hash: approvalTxHash });
 
   const [step, setStep] = useState<Step>(1);
   const [mode, setMode] = useState<Mode>('ai');
@@ -336,6 +341,35 @@ function DeployWizard() {
   }, [providersWithBidData, sortMode]);
 
   const selectedProvider = sortedProviders.find((item) => item.id === selectedProviderId) ?? sortedProviders[0];
+
+  const { data: usdcBalance } = useBalance({
+    address: walletAddress,
+    token: USDC_TOKEN_ADDRESS,
+    query: {
+      enabled: Boolean(walletAddress && USDC_TOKEN_ADDRESS)
+    }
+  });
+
+  const canApproveUsdc = Boolean(walletAddress && USDC_TOKEN_ADDRESS && USDC_SPENDER_ADDRESS);
+
+  useEffect(() => {
+    if (approvalReceipt.isSuccess) {
+      setUsdApproved(true);
+    }
+  }, [approvalReceipt.isSuccess]);
+
+  const approveUsdc = () => {
+    if (!walletAddress || !USDC_TOKEN_ADDRESS || !USDC_SPENDER_ADDRESS) {
+      return;
+    }
+
+    writeContract({
+      address: USDC_TOKEN_ADDRESS,
+      abi: erc20Abi,
+      functionName: 'approve',
+      args: [USDC_SPENDER_ADDRESS, parseUnits('1000000', 6)]
+    });
+  };
 
   useEffect(() => {
     const firstProvider = sortedProviders[0];
@@ -736,10 +770,28 @@ function DeployWizard() {
                       <div className="rounded-lg border border-[rgba(0,255,194,0.1)] bg-surface/60 p-3">
                         <ConnectButton />
                       </div>
-                      <Button variant="secondary" onClick={() => setUsdApproved(true)}>
-                        Approve USDC
+                      <Button
+                        variant="secondary"
+                        onClick={approveUsdc}
+                        loading={isSubmittingApproval || approvalReceipt.isLoading}
+                        disabled={!canApproveUsdc || usdApproved}
+                      >
+                        {usdApproved ? 'USDC Approved' : 'Approve USDC'}
                       </Button>
-                      <p className="text-xs text-text-muted">{usdApproved ? 'USDC approved. Ready to deploy.' : 'Approval required before deployment.'}</p>
+                      {!canApproveUsdc && (
+                        <p className="text-xs text-brand-warning">
+                          Configure NEXT_PUBLIC_USDC_TOKEN_ADDRESS and NEXT_PUBLIC_USDC_SPENDER_ADDRESS to enable real approval.
+                        </p>
+                      )}
+                      {approvalError && <p className="text-xs text-brand-warning">{approvalError.message}</p>}
+                      {approvalTxHash && (
+                        <p className="text-xs text-text-muted">Approval tx: {approvalTxHash.slice(0, 10)}…{approvalTxHash.slice(-8)}</p>
+                      )}
+                      <p className="text-xs text-text-muted">
+                        {usdcBalance
+                          ? `Balance: ${Number(usdcBalance.formatted).toFixed(2)} ${usdcBalance.symbol}`
+                          : 'Approval required before deployment.'}
+                      </p>
                     </div>
                   ) : (
                     <div className="rounded-lg border border-[rgba(0,255,194,0.1)] bg-surface/60 p-3">
@@ -788,6 +840,7 @@ function DeployWizard() {
 
 export default function DeployPage() {
   const [isMounted, setIsMounted] = useState(false);
+  const projectId = process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID;
 
   useEffect(() => {
     setIsMounted(true);
@@ -798,9 +851,13 @@ export default function DeployPage() {
       return null;
     }
 
+    if (!projectId) {
+      return null;
+    }
+
     return getDefaultConfig({
       appName: 'Comnetish Console',
-      projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || 'comnetish-demo-project-id',
+      projectId,
       chains: [mainnet, sepolia],
       transports: {
         [mainnet.id]: http(),
@@ -808,14 +865,20 @@ export default function DeployPage() {
       },
       ssr: false
     });
-  }, [isMounted]);
+  }, [isMounted, projectId]);
 
   if (!wagmiConfig) {
     return (
       <main className="relative min-h-screen bg-background px-6 py-8 text-text-primary">
         <div className="relative z-10 mx-auto max-w-7xl">
           <h1 className="font-display text-4xl font-semibold">Create Deployment</h1>
-          <p className="mt-2 text-text-muted">Loading wallet and deployment console…</p>
+          {isMounted && !projectId ? (
+            <p className="mt-2 text-brand-warning">
+              Missing NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID. Add it to your environment and restart the app.
+            </p>
+          ) : (
+            <p className="mt-2 text-text-muted">Loading wallet and deployment console…</p>
+          )}
         </div>
       </main>
     );

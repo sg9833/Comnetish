@@ -26,6 +26,11 @@ const createProviderSchema = z.object({
   signature: z.string().optional()
 });
 
+const updateProviderSchema = z.object({
+  pricePerCpu: z.number().positive().optional(),
+  status: z.enum(['ACTIVE', 'INACTIVE', 'MAINTENANCE']).optional()
+});
+
 const providerChallengeSchema = z.object({
   address: z.string().min(8)
 });
@@ -200,6 +205,27 @@ providers.get('/stats', async (c) => {
       byRegion: byRegion.map((item) => ({ region: item.region, count: item._count.region }))
     }
   });
+});
+
+providers.get('/me', async (c) => {
+  const provider = await resolveProviderFromSession(c);
+  if (!provider) {
+    throw new HttpError(401, 'Provider session required');
+  }
+  return c.json({ data: provider });
+});
+
+providers.patch('/me', zValidator('json', updateProviderSchema), async (c) => {
+  const provider = await resolveProviderFromSession(c);
+  if (!provider) {
+    throw new HttpError(401, 'Provider session required to update settings');
+  }
+  const body = c.req.valid('json');
+  const updated = await prisma.provider.update({
+    where: { id: provider.id },
+    data: { ...body, lastSeen: new Date() }
+  });
+  return c.json({ data: updated });
 });
 
 providers.get('/me/stats', async (c) => {

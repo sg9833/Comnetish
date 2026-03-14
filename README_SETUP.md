@@ -112,7 +112,7 @@ Comnetish/
 │   │   │   └── deploy/      ← Create deployment page
 │   │   └── tailwind.config.ts
 │   │
-│   └── provider-console/    ← Provider Console (Port 3001+)
+│   └── provider-console/    ← Provider Console (Port 3002)
 │       ├── app/
 │       │   ├── page.tsx     ← Dashboard home page
 │       │   └── onboard/     ← Provider onboarding
@@ -144,10 +144,10 @@ Comnetish/
 
 | Service              | Port  | Purpose                             | Language/Framework    |
 | -------------------- | ----- | ----------------------------------- | --------------------- |
-| **API**              | 3000  | RESTful backend for all operations  | Hono + Bun + Prisma   |
+| **API**              | 3001  | RESTful backend for all operations  | Hono + Bun + Prisma   |
 | **AI Agent**         | 3010  | AI inference endpoints              | Bun                   |
 | **Main Console**     | 3000+ | Tenant UI (create deployments, etc) | Next.js + React Query |
-| **Provider Console** | 3001+ | Provider UI (manage leases, etc)    | Next.js + React Query |
+| **Provider Console** | 3002  | Provider UI (manage leases, etc)    | Next.js + React Query |
 | **PostgreSQL**       | 5432  | Database                            | PostgreSQL            |
 
 ---

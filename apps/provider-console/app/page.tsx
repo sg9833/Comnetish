@@ -1,7 +1,8 @@
 'use client';
 
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 import { LeaseTable, type LeaseTableItem } from './components/lease-table';
@@ -10,6 +11,27 @@ import { ResourceCard } from './components/resource-card';
 import { SidebarNav } from './components/sidebar-nav';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+// ── localStorage helpers ──────────────────────────────────────────────────────
+function storageKey(addr: string) {
+  return `comnetish_registered_${addr.toLowerCase()}`;
+}
+
+function isRegisteredLocally(addr: string): boolean {
+  try {
+    return localStorage.getItem(storageKey(addr)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function saveRegisteredLocally(addr: string) {
+  try {
+    localStorage.setItem(storageKey(addr), '1');
+  } catch {
+    // storage unavailable — ignore
+  }
+}
 
 interface Lease {
   id: string;
@@ -36,6 +58,17 @@ interface ProviderSession {
   expiresAt: string;
 }
 
+interface ProviderProfile {
+  id: string;
+  address: string;
+  region: string;
+  cpu: number;
+  memory: number;
+  storage: number;
+  pricePerCpu: number;
+  status: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE';
+}
+
 async function fetchProviderData<T>(path: string, token?: string | null) {
   const response = await fetch(`${API_BASE}${path}`, {
     headers: token
@@ -54,18 +87,41 @@ async function fetchProviderData<T>(path: string, token?: string | null) {
 }
 
 export default function ProviderConsolePage() {
+  const router = useRouter();
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
+  const [hasInjectedWallet, setHasInjectedWallet] = useState<boolean | null>(null);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [authSession, setAuthSession] = useState<ProviderSession | null>(null);
   const [authAddress, setAuthAddress] = useState<string | null>(null);
   const [authenticating, setAuthenticating] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [pricePerCpu, setPricePerCpu] = useState(1);
+  const [providerStatusSetting, setProviderStatusSetting] = useState<'ACTIVE' | 'MAINTENANCE'>('ACTIVE');
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsSavedAt, setSettingsSavedAt] = useState<number | null>(null);
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const ethereumProvider = (window as Window & { ethereum?: unknown }).ethereum;
+    setHasInjectedWallet(Boolean(ethereumProvider));
+  }, []);
+
+  useEffect(() => {
+    if (!isConnected || !needsOnboarding) {
+      return;
+    }
+
+    router.push('/onboard');
+  }, [isConnected, needsOnboarding, router]);
 
   useEffect(() => {
     if (!isConnected || !address) {
       setAuthSession(null);
       setAuthAddress(null);
       setAuthError(null);
+      setNeedsOnboarding(false);
       setAuthenticating(false);
       return;
     }
@@ -120,14 +176,21 @@ export default function ProviderConsolePage() {
         };
 
         if (!cancelled) {
+          saveRegisteredLocally(normalizedAddress);
           setAuthSession(verifyPayload.data.session);
           setAuthAddress(normalizedAddress);
+          setNeedsOnboarding(false);
         }
       } catch (error) {
         if (!cancelled) {
+          const message = error instanceof Error ? error.message : 'Provider authentication failed.';
           setAuthSession(null);
           setAuthAddress(null);
-          setAuthError(error instanceof Error ? error.message : 'Provider authentication failed.');
+          setAuthError(message);
+          const unregistered = message.toLowerCase().includes('not registered as a provider');
+          // Only redirect to onboarding if this address has never registered before;
+          // if localStorage says they registered before, the API might just be temporarily down.
+          setNeedsOnboarding(unregistered && !isRegisteredLocally(normalizedAddress));
         }
       } finally {
         if (!cancelled) {
@@ -158,6 +221,51 @@ export default function ProviderConsolePage() {
     enabled: queriesEnabled,
     refetchInterval: 20_000
   });
+
+  const { data: providerProfile, refetch: refetchProfile } = useQuery({
+    queryKey: ['provider-profile', authAddress ?? address ?? 'demo'],
+    queryFn: async () => fetchProviderData<ProviderProfile>('/api/providers/me', authSession?.token),
+    enabled: Boolean(authSession?.token),
+    staleTime: 60_000
+  });
+
+  // Sync settings form from loaded profile
+  useEffect(() => {
+    if (providerProfile) {
+      setPricePerCpu(providerProfile.pricePerCpu);
+      if (providerProfile.status === 'ACTIVE' || providerProfile.status === 'MAINTENANCE') {
+        setProviderStatusSetting(providerProfile.status);
+      }
+    }
+  }, [providerProfile]);
+
+  async function saveSettings() {
+    if (!authSession?.token) return;
+    setSettingsSaving(true);
+    setSettingsError(null);
+    setSettingsSavedAt(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/providers/me`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authSession.token}`
+        },
+        body: JSON.stringify({ pricePerCpu, status: providerStatusSetting })
+      });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(err.message ?? 'Failed to save settings');
+      }
+      setSettingsSavedAt(Date.now());
+      void refetchProfile();
+      void queryClient.invalidateQueries({ queryKey: ['provider-stats'] });
+    } catch (e) {
+      setSettingsError(e instanceof Error ? e.message : 'Failed to save settings');
+    } finally {
+      setSettingsSaving(false);
+    }
+  }
 
   const isLoading = statsLoading || leasesLoading || authenticating;
 
@@ -216,7 +324,7 @@ export default function ProviderConsolePage() {
       <div className="relative z-10 mx-auto max-w-[1440px]">
         <div className="grid grid-cols-12 gap-6">
           <div className="col-span-12 lg:col-span-3 xl:col-span-2">
-            <SidebarNav />
+            <SidebarNav isRegistered={Boolean(authSession) || isRegisteredLocally(address ?? '')} />
           </div>
 
           <div className="col-span-12 space-y-8 lg:col-span-9 xl:col-span-10">
@@ -240,6 +348,25 @@ export default function ProviderConsolePage() {
                     <p className="mt-3 text-sm text-slate-400">
                       Securely connect your provider wallet to load leases, earnings, and capacity metrics.
                     </p>
+                    {hasInjectedWallet === false ? (
+                      <div className="mt-4 rounded-xl border border-amber-400/40 bg-amber-500/10 p-3 text-left text-sm text-amber-200">
+                        <p className="font-semibold">No browser wallet detected.</p>
+                        <p className="mt-1 text-amber-100/90">
+                          Install or enable MetaMask in this Chrome profile, then refresh this page.
+                        </p>
+                        <p className="mt-1 text-amber-100/80">
+                          If using Incognito, allow the extension in incognito mode first.
+                        </p>
+                        <a
+                          href="https://metamask.io/download/"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 inline-flex text-xs font-semibold text-amber-100 underline underline-offset-4"
+                        >
+                          Install MetaMask
+                        </a>
+                      </div>
+                    ) : null}
                     <div className="mt-6 flex justify-center">
                       <ConnectButton label="Connect Wallet" />
                     </div>
@@ -248,6 +375,27 @@ export default function ProviderConsolePage() {
               </section>
             ) : isLoading && !stats ? (
               <DashboardSkeleton />
+            ) : needsOnboarding ? (
+              <section className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-8 shadow-[0_16px_40px_rgba(0,0,0,0.35)]">
+                <h2 className="text-2xl font-semibold text-amber-100">Wallet Connected, Provider Not Registered</h2>
+                <p className="mt-3 text-sm text-amber-50/90">
+                  Complete onboarding to register this wallet as a provider and start receiving lease assignments.
+                </p>
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => router.push('/onboard')}
+                    className="rounded-lg bg-[#3B82F6] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#2563EB]"
+                  >
+                    Complete Onboarding
+                  </button>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+                  >
+                    Retry Auth
+                  </button>
+                </div>
+              </section>
             ) : (
               <>
                 {authError ? (
@@ -293,10 +441,95 @@ export default function ProviderConsolePage() {
                 </section>
 
                 <section id="settings" className="rounded-2xl border border-white/10 bg-[#111827] p-6 shadow-[0_16px_40px_rgba(0,0,0,0.35)]">
-                  <h3 className="text-lg font-semibold text-slate-100">Settings</h3>
-                  <p className="mt-2 text-sm text-slate-400">
-                    Provider-level network settings and payout configurations will appear here.
+                  <h3 className="text-lg font-semibold text-slate-100">Node Settings</h3>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Configure pricing and operational status for your provider node.
                   </p>
+
+                  <div className="mt-6 grid gap-5 sm:grid-cols-2">
+                    {/* Wallet address */}
+                    <div className="sm:col-span-2">
+                      <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">Wallet Address</p>
+                      <div className="break-all select-all rounded-lg border border-white/10 bg-[#0B1220] px-4 py-3 font-mono text-sm text-slate-300">
+                        {address ?? '—'}
+                      </div>
+                    </div>
+
+                    {/* Region */}
+                    <div>
+                      <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">Region</p>
+                      <div className="rounded-lg border border-white/10 bg-[#0B1220] px-4 py-3 text-sm text-slate-300">
+                        {providerProfile?.region ?? '—'}
+                      </div>
+                    </div>
+
+                    {/* Capacity summary */}
+                    <div>
+                      <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">Offered Capacity</p>
+                      <div className="space-y-0.5 rounded-lg border border-white/10 bg-[#0B1220] px-4 py-3 text-sm text-slate-300">
+                        <div>{providerProfile?.cpu ?? stats?.cpu ?? 0} vCPU cores</div>
+                        <div>{((providerProfile?.memory ?? stats?.memory ?? 0) / 1024).toFixed(1)} GB RAM</div>
+                        <div>{providerProfile?.storage ?? stats?.storage ?? 0} GB storage</div>
+                      </div>
+                    </div>
+
+                    {/* Price per CPU */}
+                    <div>
+                      <label htmlFor="pricePerCpu" className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">
+                        Price per CPU Core (CNT / hr)
+                      </label>
+                      <input
+                        id="pricePerCpu"
+                        type="number"
+                        min={0.001}
+                        step={0.001}
+                        value={pricePerCpu}
+                        onChange={(e) => setPricePerCpu(Math.max(0.001, Number(e.target.value)))}
+                        className="w-full rounded-lg border border-white/10 bg-[#0B1220] px-4 py-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      />
+                    </div>
+
+                    {/* Node status */}
+                    <div>
+                      <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">Node Status</p>
+                      <div className="flex gap-2">
+                        {(['ACTIVE', 'MAINTENANCE'] as const).map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => setProviderStatusSetting(s)}
+                            className={[
+                              'rounded-lg border px-4 py-2 text-sm font-medium transition',
+                              providerStatusSetting === s
+                                ? s === 'ACTIVE'
+                                  ? 'border-green-500/40 bg-green-500/20 text-green-300'
+                                  : 'border-amber-500/40 bg-amber-500/20 text-amber-300'
+                                : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'
+                            ].join(' ')}
+                          >
+                            {s === 'ACTIVE' ? '● Active' : '⏸ Maintenance'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {settingsError ? (
+                    <p className="mt-4 text-sm text-red-300">{settingsError}</p>
+                  ) : settingsSavedAt ? (
+                    <p className="mt-4 text-sm text-green-400">✓ Settings saved at {new Date(settingsSavedAt).toLocaleTimeString()}</p>
+                  ) : null}
+
+                  <div className="mt-6">
+                    <button
+                      type="button"
+                      onClick={() => void saveSettings()}
+                      disabled={settingsSaving || !authSession?.token}
+                      className="rounded-lg bg-[#3B82F6] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2563EB] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {settingsSaving ? 'Saving…' : 'Save Settings'}
+                    </button>
+                  </div>
                 </section>
               </>
             )}

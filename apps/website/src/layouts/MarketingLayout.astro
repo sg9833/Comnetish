@@ -226,11 +226,11 @@ const { title, description } = Astro.props;
       }
 
       const statsEl = document.querySelector<HTMLElement>('[data-live-stats]');
+      const API_BASE = statsEl?.getAttribute('data-api') || 'http://localhost:3001';
       if (statsEl) {
         const providersNode = statsEl.querySelector<HTMLElement>('[data-stat="providers"]');
         const deploymentsNode = statsEl.querySelector<HTMLElement>('[data-stat="deployments"]');
         const volumeNode = statsEl.querySelector<HTMLElement>('[data-stat="volume"]');
-        const API_BASE = statsEl.getAttribute('data-api') || 'http://localhost:3001';
 
         const setValue = (el: HTMLElement | null, value: string) => {
           if (el) {
@@ -240,9 +240,11 @@ const { title, description } = Astro.props;
 
         const loadStats = async () => {
           try {
+            const apiRoot = API_BASE.replace(/\/$/, '');
+            const withApiPrefix = (path: string) => (apiRoot.endsWith('/api') ? `${apiRoot}${path}` : `${apiRoot}/api${path}`);
             const [providerRes, platformRes] = await Promise.all([
-              fetch(`${API_BASE}/providers/stats`),
-              fetch(`${API_BASE}/stats`)
+              fetch(withApiPrefix('/providers/stats')),
+              fetch(withApiPrefix('/stats'))
             ]);
 
             if (!providerRes.ok || !platformRes.ok) {
@@ -298,7 +300,7 @@ const { title, description } = Astro.props;
       const captureForm = document.querySelector<HTMLFormElement>('[data-email-capture]');
       if (captureForm) {
         const statusNode = captureForm.querySelector<HTMLElement>('[data-capture-status]');
-        captureForm.addEventListener('submit', (event) => {
+        captureForm.addEventListener('submit', async (event) => {
           event.preventDefault();
           const emailInput = captureForm.querySelector<HTMLInputElement>('input[type="email"]');
           const value = emailInput?.value?.trim() || '';
@@ -306,8 +308,25 @@ const { title, description } = Astro.props;
             if (statusNode) statusNode.textContent = 'Enter a valid email address.';
             return;
           }
-          if (statusNode) statusNode.textContent = 'You are on the waitlist. We will reach out shortly.';
-          captureForm.reset();
+
+          try {
+            const apiRoot = API_BASE.replace(/\/$/, '');
+            const waitlistUrl = apiRoot.endsWith('/api') ? `${apiRoot}/waitlist` : `${apiRoot}/api/waitlist`;
+            const response = await fetch(waitlistUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: value, source: 'website' })
+            });
+
+            if (!response.ok) {
+              throw new Error('waitlist-submit-failed');
+            }
+
+            if (statusNode) statusNode.textContent = 'You are on the waitlist. We will reach out shortly.';
+            captureForm.reset();
+          } catch {
+            if (statusNode) statusNode.textContent = 'Failed to join waitlist. Please try again.';
+          }
         });
       }
     </script>

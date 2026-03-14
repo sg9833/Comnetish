@@ -72,6 +72,17 @@ leases.post('/', zValidator('json', createLeaseSchema), async (c) => {
       data: { status: 'LOST' }
     });
 
+    await tx.transaction.create({
+      data: {
+        type: 'LEASE_START',
+        from: deployment.tenantAddress,
+        to: provider.address,
+        amount: payload.pricePerBlock,
+        token: 'CNT',
+        txHash: `lease_${newLease.id}_${Date.now()}`
+      }
+    });
+
     return tx.lease.findUnique({
       where: { id: newLease.id },
       include: {

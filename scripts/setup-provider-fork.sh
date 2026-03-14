@@ -159,7 +159,7 @@ version: "3.9"
 
 services:
   provider-daemon:
-    image: golang:1.22
+    image: golang:1.25.5
     container_name: comnetish-provider-daemon
     working_dir: /workspace
     volumes:

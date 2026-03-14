@@ -211,7 +211,7 @@ pnpm dev
 
 ✅ **Main Console is running on: http://localhost:3000**
 
-> **Note:** If port 3000 conflicts with API, it will auto-increment to 3001 or 3002
+> **Note:** If port 3000 is already in use, Next.js will auto-increment the console port (for example to 3002).
 
 ### Terminal 4: Provider Console
 

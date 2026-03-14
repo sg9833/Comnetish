@@ -13,6 +13,9 @@ async function writeJson(filePath: string, data: unknown) {
 
 async function main() {
   const [deployer] = await hre.ethers.getSigners();
+  if (!deployer) {
+    throw new Error('No deployer signer found.');
+  }
   const networkName = hre.network.name;
 
   console.log(`Deploying contracts to ${networkName} with account ${deployer.address}`);

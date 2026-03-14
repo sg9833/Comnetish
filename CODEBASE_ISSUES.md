@@ -3,8 +3,14 @@
 **Last Scanned**: 2026-03-14
 **Status**: 16 previously tracked fixes verified — expanded repo-wide audit found additional unresolved issues across setup, contracts, and chain
 
-> See `IMPLEMENTATION_COMPLETE.md` for the authoritative fix log and remaining issue table.
-> Sections below are preserved for context; ✅ marks resolved items.
+## Canonical Audit Snapshot
+
+- API/schema/db complete audit: `API_SCHEMA_DB_AUDIT_2026-03-14.md`
+- Canonical current-open list: this file (`Current Open Issues` section)
+
+> See `IMPLEMENTATION_COMPLETE.md` for implementation/fix log details.
+> See `ISSUES_BY_FILE.md` for quick per-file pointers.
+> This file is the canonical source of current-open status.
 
 ---
 
@@ -29,7 +35,38 @@
 | M13 | Storage regex fixed with proper multiline regex                                     |
 | M14 | AI route join('\n') fixed (was '\\n')                                               |
 
+## ✅ RESOLVED (Latest Remediation Delta)
+
+| ID             | What Was Closed                                                         | Exact File References                                                                                                                                                                                                                       |
+| -------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C5             | `/api/providers/me/bids` ordering mismatch no longer blocks runtime     | `services/api/prisma/schema.prisma`, `services/api/src/routes/providers.ts`                                                                                                                                                                 |
+| H9             | Bid status update route expanded beyond withdraw-only                   | `services/api/src/routes/bids.ts`                                                                                                                                                                                                           |
+| M9             | CORS default now includes full local origin set                         | `services/api/src/config/env.ts`, `services/api/.env.example`                                                                                                                                                                               |
+| M12            | `/me/*` provider flows now support authenticated provider context       | `services/api/src/routes/providers.ts`                                                                                                                                                                                                      |
+| L1             | Map pin jitter removed (deterministic coordinates/uptime)               | `apps/console/app/map/page.tsx`                                                                                                                                                                                                             |
+| L4             | Invalid WalletConnect demo fallback removed from deploy flow            | `apps/console/app/deploy/page.tsx`                                                                                                                                                                                                          |
+| H10            | Provider wallet flow hardened (injected connector, no demo WC fallback) | `apps/provider-console/app/providers.tsx`                                                                                                                                                                                                   |
+| API-Stats-Path | Website stats path mismatch fixed (`/api` prefix handling)              | `apps/website/src/layouts/MarketingLayout.astro`                                                                                                                                                                                            |
+| API-Waitlist   | Waitlist persistence implemented end-to-end                             | `services/api/src/routes/waitlist.ts`, `services/api/src/index.ts`, `services/api/prisma/schema.prisma`, `services/api/prisma/migrations/20260314191000_add_waitlist_entry/migration.sql`, `apps/website/src/layouts/MarketingLayout.astro` |
+| H6-Extended    | Deployment list counts now include leases as well as bids               | `services/api/src/routes/deployments.ts`                                                                                                                                                                                                    |
+| Stats-Volume   | Lease creation now writes transactions for stats volume aggregation     | `services/api/src/routes/leases.ts`                                                                                                                                                                                                         |
+
 ---
+
+## Current Open Issues (Canonical)
+
+| ID  | Severity | Open Issue                                                         | Primary File(s)                                                         |
+| --- | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| C6  | Critical | Chain client path is still not wired into the runtime request path | `services/api/src/routes/*`, `packages/chain-client`, `README.md`       |
+| C8  | Critical | Chain `go test` flow is not green in this workspace baseline       | `chain/go.mod` and chain packages                                       |
+| L6  | Low      | Provider console and console global CSS still duplicated           | `apps/provider-console/app/globals.css`, `apps/console/app/globals.css` |
+
+---
+
+## Archived Legacy Snapshot (Superseded)
+
+The sections below are intentionally retained as historical context from earlier audit passes.
+Do not use the entries below as current status; use `Current Open Issues (Canonical)` above.
 
 ## Executive Summary
 

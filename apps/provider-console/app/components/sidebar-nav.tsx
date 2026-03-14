@@ -1,8 +1,15 @@
 "use client";
 
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
-const sidebarItems = [
+const routeItems = [
+  { label: 'Dashboard', href: '/' },
+  { label: 'Onboarding', href: '/onboard' }
+];
+
+const sectionItems = [
   { label: 'Dashboard', href: '#dashboard' },
   { label: 'Active Leases', href: '#active-leases' },
   { label: 'Earnings', href: '#earnings' },
@@ -10,8 +17,10 @@ const sidebarItems = [
   { label: 'Settings', href: '#settings' }
 ];
 
-export function SidebarNav() {
-  const sectionIds = useMemo(() => sidebarItems.map((item) => item.href.replace('#', '')), []);
+export function SidebarNav({ isRegistered = false }: { isRegistered?: boolean }) {
+  const pathname = usePathname();
+  const isDashboardRoute = pathname === '/';
+  const sectionIds = useMemo(() => sectionItems.map((item) => item.href.replace('#', '')), []);
   const [activeSection, setActiveSection] = useState(sectionIds[0] ?? 'dashboard');
 
   useEffect(() => {
@@ -55,21 +64,45 @@ export function SidebarNav() {
       </div>
 
       <nav className="space-y-2" aria-label="Sidebar">
-        {sidebarItems.map((item) => (
-          <a
-            key={item.label}
-            href={item.href}
-            className={[
-              'block rounded-xl px-4 py-3 text-sm transition-colors',
-              activeSection === item.href.replace('#', '')
-                ? 'bg-[#3B82F6]/20 text-[#93C5FD]'
-                : 'text-slate-300 hover:bg-white/5 hover:text-slate-100'
-            ].join(' ')}
-            aria-current={activeSection === item.href.replace('#', '') ? 'page' : undefined}
-          >
-            {item.label}
-          </a>
-        ))}
+        {routeItems
+          .filter((item) => !(item.href === '/onboard' && isRegistered))
+          .map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.label}
+              href={item.href}
+              className={[
+                'block rounded-xl px-4 py-3 text-sm transition-colors',
+                isActive ? 'bg-[#3B82F6]/20 text-[#93C5FD]' : 'text-slate-300 hover:bg-white/5 hover:text-slate-100'
+              ].join(' ')}
+              aria-current={isActive ? 'page' : undefined}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+
+        {isDashboardRoute ? (
+          <>
+            <div className="my-3 border-t border-white/10" />
+            {sectionItems.map((item) => (
+              <a
+                key={item.label}
+                href={item.href}
+                className={[
+                  'block rounded-xl px-4 py-3 text-sm transition-colors',
+                  activeSection === item.href.replace('#', '')
+                    ? 'bg-[#3B82F6]/20 text-[#93C5FD]'
+                    : 'text-slate-300 hover:bg-white/5 hover:text-slate-100'
+                ].join(' ')}
+                aria-current={activeSection === item.href.replace('#', '') ? 'page' : undefined}
+              >
+                {item.label}
+              </a>
+            ))}
+          </>
+        ) : null}
       </nav>
     </aside>
   );

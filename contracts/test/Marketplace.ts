@@ -2,16 +2,39 @@ import { time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import hre from 'hardhat';
 
+type MintableToken = {
+  connect: (runner: unknown) => MintableToken;
+  waitForDeployment: () => Promise<unknown>;
+  getAddress: () => Promise<string>;
+  mint: (to: string, amount: bigint) => Promise<unknown>;
+  approve: (spender: string, amount: bigint) => Promise<unknown>;
+  balanceOf: (owner: string) => Promise<bigint>;
+};
+
+type EscrowContract = {
+  interface: unknown;
+  connect: (runner: unknown) => EscrowContract;
+  waitForDeployment: () => Promise<unknown>;
+  getAddress: () => Promise<string>;
+  depositForLease: (id: number, provider: string, amount: bigint, duration: number) => Promise<unknown>;
+  settleLease: (id: number) => Promise<unknown>;
+  cancelLease: (id: number) => Promise<unknown>;
+  markLeaseStarted: (id: number) => Promise<unknown>;
+};
+
 describe('PaymentEscrow', function () {
   async function deployFixture() {
     const [owner, tenant, provider, stranger] = await hre.ethers.getSigners();
+    if (!owner || !tenant || !provider || !stranger) {
+      throw new Error('Insufficient signers to run marketplace tests.');
+    }
 
     const tokenFactory = await hre.ethers.getContractFactory('CNTToken');
-    const usdc = await tokenFactory.deploy('USD Coin (Mock)', 'USDC', 6);
+    const usdc = (await tokenFactory.deploy('USD Coin (Mock)', 'USDC', 6)) as unknown as MintableToken;
     await usdc.waitForDeployment();
 
     const escrowFactory = await hre.ethers.getContractFactory('PaymentEscrow');
-    const escrow = await escrowFactory.deploy(await usdc.getAddress(), owner.address);
+    const escrow = (await escrowFactory.deploy(await usdc.getAddress(), owner.address)) as unknown as EscrowContract;
     await escrow.waitForDeployment();
 
     const funded = hre.ethers.parseUnits('1000', 6);

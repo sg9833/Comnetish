@@ -13,6 +13,7 @@ import { deployments } from './routes/deployments';
 import { leases } from './routes/leases';
 import { providers } from './routes/providers';
 import { stats } from './routes/stats';
+import { waitlist } from './routes/waitlist';
 
 const app = new Hono();
 const { upgradeWebSocket, websocket } = createBunWebSocket();
@@ -40,6 +41,7 @@ app.route('/api/leases', leases);
 app.route('/api/bids', bids);
 app.route('/api/stats', stats);
 app.route('/api/ai', ai);
+app.route('/api/waitlist', waitlist);
 
 app.get(
   '/ws',

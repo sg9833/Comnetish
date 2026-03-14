@@ -65,55 +65,29 @@
 - **M14**: Fixed `join('\\n')` → `join('\n')` in `routes/ai.ts` — Claude now receives properly formatted prompts
 - **Provider console bids section**: Changed from broken `GET /api/bids` (no filter) to `GET /api/providers/me/bids`; shows OPEN bids with Withdraw button and WON bids with View link
 
----
+### Additional Fixes Verified (Latest Sweep)
 
-## ❌ Remaining Open Issues (14 total)
-
-### Critical
-
-| ID | Issue | Location |
-|---|---|---|
-| C2 | `/ws/deployments/:id/logs` WebSocket never registered — logs always fake | `services/api/src/index.ts` |
-
-### Medium Priority
-
-| ID | Issue | Location |
-|---|---|---|
-| M3 | `?provider=` query param ignored by map and deploy pages | `map/page.tsx`, `deploy/page.tsx` |
-| M6 | Deploy page shows hardcoded `1,248.34 CNT` balance | `deploy/page.tsx` |
-| M8 | Stale `connectionState` closure — fake logs always shown even on real WS connect | `deployments/[id]/page.tsx` |
-| M9 | CORS defaults to `localhost:3000` only — multi-origin setups blocked | `services/api/src/config/env.ts` |
-| M10 | AI agent `/inference` and `/batch` are stubs — no real inference | `services/ai-agent/src/index.ts` |
-| M11 | 4 pages have inner `QueryClientProvider` wrapping (isolated from root) | dashboard, deploy, map, deployments/[id] |
-| M12 | `/me/*` provider routes return first active provider for everyone (no auth) | `providers.ts` |
-
-### Low Priority
-
-| ID | Issue | Location |
-|---|---|---|
-| L1 | Map pins jitter on each data refresh (`Math.random()` in `hashToCoord`) | `map/page.tsx` |
-| L2 | Live URL hardcoded to `comnetish.app` domain | `deployments/[id]/page.tsx` |
-| L3 | `transpilePackages` missing `@comnetish/chain-client` | both `next.config.mjs` |
-| L4 | WalletConnect fallback demo project ID is invalid | `deploy/page.tsx` |
-| L5 | USDC approval is `setUsdApproved(true)` — no ERC-20 approve() call | `deploy/page.tsx` |
-| L6 | Provider console CSS duplicates main console CSS | `provider-console/globals.css` |
+| ID             | Status      | Exact File References                                                                                                                                                                                                                       |
+| -------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C5             | ✅ Resolved | `services/api/prisma/schema.prisma` (Bid `createdAt` present), `services/api/src/routes/providers.ts` (`/me/bids` orders by `createdAt`)                                                                                                    |
+| H9             | ✅ Resolved | `services/api/src/routes/bids.ts` (`PATCH /api/bids/:id` now supports `OPEN`, `WON`, `LOST`)                                                                                                                                                |
+| M9             | ✅ Resolved | `services/api/src/config/env.ts`, `services/api/.env.example`                                                                                                                                                                               |
+| M12            | ✅ Resolved | `services/api/src/routes/providers.ts` (`resolveProviderFromSession`, `GET/PATCH /api/providers/me`)                                                                                                                                        |
+| L1             | ✅ Resolved | `apps/console/app/map/page.tsx` (removed random jitter; deterministic hash-based coordinates and uptime)                                                                                                                                    |
+| L4             | ✅ Resolved | `apps/console/app/deploy/page.tsx` (WalletConnect fallback removed; env var required)                                                                                                                                                       |
+| H10            | ✅ Resolved | `apps/provider-console/app/providers.tsx` (injected connector flow; no WalletConnect demo fallback)                                                                                                                                         |
+| API-Stats-Path | ✅ Resolved | `apps/website/src/layouts/MarketingLayout.astro` (`/api/providers/stats`, `/api/stats`)                                                                                                                                                     |
+| API-Waitlist   | ✅ Resolved | `services/api/src/routes/waitlist.ts`, `services/api/src/index.ts`, `services/api/prisma/schema.prisma`, `services/api/prisma/migrations/20260314191000_add_waitlist_entry/migration.sql`, `apps/website/src/layouts/MarketingLayout.astro` |
+| H6-Extended    | ✅ Resolved | `services/api/src/routes/deployments.ts` (`_count: { bids: true, leases: true }`)                                                                                                                                                           |
+| Stats-Volume   | ✅ Resolved | `services/api/src/routes/leases.ts` (transaction write during lease start)                                                                                                                                                                  |
 
 ---
 
-## Next Fix Sequence (for Friend's Laptop / Multi-Provider)
+## Current Open Issues
 
-### Batch 4 — Multi-Provider Prep
-1. **M9**: Expand CORS origins default in `services/api/src/config/env.ts`
-2. **M12**: Add auth context to `/me/*` routes (at minimum, support `?address=` query param)
-3. **C2**: Implement per-deployment WebSocket log endpoint
-4. **M8**: Fix stale `connectionState` closure in deployment logs fallback
+The canonical current-open issue list is maintained in `CODEBASE_ISSUES.md` under `Current Open Issues (Canonical)`.
 
-### Batch 5 — Polish
-5. **M3**: Wire `?provider=` param in map and deploy pages
-6. **M6**: Fetch real CNT balance in deploy wizard
-7. **L1**: Remove `Math.random()` from `hashToCoord` in map
-8. **M11**: Remove nested `QueryClientProvider` from 4 pages
+## Legacy Archive
 
----
-
-**Open Issues**: 14 total (1 Critical, 7 Medium, 6 Low)
+The previous open-issue and next-fix sections that existed in this file were intentionally removed to prevent status drift across multiple trackers.
+Use git history for prior snapshots if needed.

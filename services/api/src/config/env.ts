@@ -7,7 +7,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_PORT: z.coerce.number().int().positive().default(3001),
   API_HOST: z.string().default('0.0.0.0'),
-  API_CORS_ORIGIN: z.string().default('http://localhost:3000,http://localhost:3002'),
+  API_CORS_ORIGIN: z.string().default('http://localhost:3000,http://localhost:3001,http://localhost:3002'),
   PROVIDER_AUTH_SECRET: z.string().min(16).default('comnetish-dev-provider-auth-secret'),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   ANTHROPIC_API_KEY: z.string().optional(),

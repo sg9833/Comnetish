@@ -202,7 +202,7 @@ Failed: 0
 
 **Connectivity Tests:**
 
-- Can reach API at http://localhost:3000
+- Can reach API at http://localhost:3001
 - Can reach AI Agent at http://localhost:3010
 
 **API Tests:**

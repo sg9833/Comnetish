@@ -2,6 +2,11 @@ import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import hre from 'hardhat';
 
+type MintableToken = {
+  connect: (runner: unknown) => MintableToken;
+  mint: (to: string, amount: bigint) => Promise<unknown>;
+};
+
 type AddressExport = {
   cntToken: string;
   usdcToken: string;
@@ -21,12 +26,15 @@ function readAddresses(networkName: string): AddressExport {
 
 async function main() {
   const [deployer, tenant1, provider1, provider2] = await hre.ethers.getSigners();
+  if (!deployer || !tenant1 || !provider1 || !provider2) {
+    throw new Error('Insufficient signers to run seed script.');
+  }
   const networkName = hre.network.name;
   const addresses = readAddresses(networkName);
 
   const tokenFactory = await hre.ethers.getContractFactory('CNTToken');
-  const cnt = tokenFactory.attach(addresses.cntToken);
-  const usdc = tokenFactory.attach(addresses.usdcToken);
+  const cnt = tokenFactory.attach(addresses.cntToken) as unknown as MintableToken;
+  const usdc = tokenFactory.attach(addresses.usdcToken) as unknown as MintableToken;
 
   const cntAmount = hre.ethers.parseUnits('100000', 18);
   const usdcAmount = hre.ethers.parseUnits('25000', 6);

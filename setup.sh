@@ -37,6 +37,7 @@ NC='\033[0m' # No Color
 # Configuration
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 API_DIR="$PROJECT_ROOT/services/api"
+LOG_DIR="$PROJECT_ROOT/.logs"
 START_SERVICES=false
 
 ###############################################################################
@@ -326,32 +327,62 @@ echo ""
 if [ "$START_SERVICES" = true ]; then
     print_header "Starting Services..."
 
-    print_info "Opening 4 terminal windows for services..."
-    print_warning "NOTE: Each service will open in a new terminal window"
-    echo ""
+    if [[ "$(uname -s)" == "Darwin" ]] && command -v osascript >/dev/null 2>&1; then
+        print_info "Opening 4 terminal windows for services..."
+        print_warning "NOTE: Each service will open in a new terminal window"
+        echo ""
 
-    # API Service
-    print_info "Starting API Service on http://localhost:3001"
-    osascript -e "tell app \"Terminal\" to do script \"cd '$PROJECT_ROOT/services/api' && API_PORT=3001 pnpm build && API_PORT=3001 pnpm start\"" &
-    sleep 2
+        # API Service
+        print_info "Starting API Service on http://localhost:3001"
+        osascript -e "tell app \"Terminal\" to do script \"cd '$PROJECT_ROOT/services/api' && API_PORT=3001 pnpm build && API_PORT=3001 pnpm start\"" &
+        sleep 2
 
-    # AI Agent Service
-    print_info "Starting AI Agent Service on http://localhost:3010"
-    osascript -e "tell app \"Terminal\" to do script \"cd '$PROJECT_ROOT/services/ai-agent' && pnpm start\"" &
-    sleep 2
+        # AI Agent Service
+        print_info "Starting AI Agent Service on http://localhost:3010"
+        osascript -e "tell app \"Terminal\" to do script \"cd '$PROJECT_ROOT/services/ai-agent' && pnpm start\"" &
+        sleep 2
 
-    # Main Console
-    print_info "Starting Main Console on http://localhost:3000"
-    osascript -e "tell app \"Terminal\" to do script \"cd '$PROJECT_ROOT/apps/console' && PORT=3000 pnpm dev\"" &
-    sleep 2
+        # Main Console
+        print_info "Starting Main Console on http://localhost:3000"
+        osascript -e "tell app \"Terminal\" to do script \"cd '$PROJECT_ROOT/apps/console' && PORT=3000 pnpm dev\"" &
+        sleep 2
 
-    # Provider Console
-    print_info "Starting Provider Console on http://localhost:3002"
-    osascript -e "tell app \"Terminal\" to do script \"cd '$PROJECT_ROOT/apps/provider-console' && PORT=3002 pnpm dev\"" &
-    sleep 2
+        # Provider Console
+        print_info "Starting Provider Console on http://localhost:3002"
+        osascript -e "tell app \"Terminal\" to do script \"cd '$PROJECT_ROOT/apps/provider-console' && PORT=3002 pnpm dev\"" &
+        sleep 2
+    else
+        print_warning "macOS Terminal automation unavailable. Starting services in background mode."
+        mkdir -p "$LOG_DIR"
+
+        (
+            cd "$PROJECT_ROOT/services/api"
+            nohup sh -c "API_PORT=3001 pnpm build && API_PORT=3001 pnpm start" >"$LOG_DIR/api.log" 2>&1 &
+            echo $! > "$LOG_DIR/api.pid"
+        )
+
+        (
+            cd "$PROJECT_ROOT/services/ai-agent"
+            nohup sh -c "AI_AGENT_PORT=3010 pnpm start" >"$LOG_DIR/ai-agent.log" 2>&1 &
+            echo $! > "$LOG_DIR/ai-agent.pid"
+        )
+
+        (
+            cd "$PROJECT_ROOT/apps/console"
+            nohup sh -c "PORT=3000 pnpm dev" >"$LOG_DIR/console.log" 2>&1 &
+            echo $! > "$LOG_DIR/console.pid"
+        )
+
+        (
+            cd "$PROJECT_ROOT/apps/provider-console"
+            nohup sh -c "PORT=3002 pnpm dev" >"$LOG_DIR/provider-console.log" 2>&1 &
+            echo $! > "$LOG_DIR/provider-console.pid"
+        )
+    fi
 
     echo ""
     print_success "Services are starting in new terminal windows..."
+    print_info "Logs directory: $LOG_DIR"
     echo ""
     print_info "Once all services show 'Ready' or 'listening' messages:"
     echo "  - Main Console:     http://localhost:3000"

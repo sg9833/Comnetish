@@ -1,9 +1,10 @@
 'use client';
 
 import { Badge, Button, Card } from '@comnetish/ui';
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Area,
@@ -65,14 +66,6 @@ type RingDatum = ProviderGeo & {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const REFRESH_MS = 15_000;
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 10_000,
-      retry: 1
-    }
-  }
-});
 
 const REGION_GEO: Record<string, { lat: number; lng: number; flag: string; label: string }> = {
   'US-West': { lat: 37.7749, lng: -122.4194, flag: '🇺🇸', label: 'US West' },
@@ -84,13 +77,9 @@ const REGION_GEO: Record<string, { lat: number; lng: number; flag: string; label
 };
 
 function hashToCoord(input: string) {
-  let hash = 0;
-  for (let index = 0; index < input.length; index += 1) {
-    hash = (hash << 5) - hash + input.charCodeAt(index);
-    hash |= 0;
-  }
-  const lat = ((hash % 140) - 70) + Math.random() * 2;
-  const lng = (((hash / 7) % 320) - 160) + Math.random() * 2;
+  const hash = hashInt(input);
+  const lat = (hash % 140) - 70;
+  const lng = (Math.floor(hash / 7) % 320) - 160;
   return { lat, lng };
 }
 
@@ -141,6 +130,8 @@ function formatStorage(storageGb: number) {
 }
 
 function ProviderMapPageContent() {
+  const searchParams = useSearchParams();
+  const providerFromUrl = searchParams.get('provider');
   const globeRef = useRef<any>(null);
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -199,7 +190,8 @@ function ProviderMapPageContent() {
     return providers.map((provider) => {
       const mapped = REGION_GEO[provider.region] ?? hashToCoord(provider.region);
       const providerLeases = leases.filter((item) => item.providerId === provider.id && item.status === 'ACTIVE').length;
-      const uptime = provider.status === 'ACTIVE' ? 98.8 - Math.random() * 1.2 : 92.4 - Math.random() * 6;
+      const variability = (hashInt(provider.id) % 100) / 100;
+      const uptime = provider.status === 'ACTIVE' ? 98.0 + variability * 1.6 : 92.0 + variability * 2.8;
       return {
         ...provider,
         lat: mapped.lat,
@@ -218,6 +210,20 @@ function ProviderMapPageContent() {
   );
 
   const selectedProvider = selectedProviderId ? providerById[selectedProviderId] : providersGeo[0];
+
+  useEffect(() => {
+    if (!providerFromUrl || providersGeo.length === 0) {
+      return;
+    }
+
+    const requested = providersGeo.find((provider) => provider.id === providerFromUrl);
+    if (!requested) {
+      return;
+    }
+
+    setSelectedProviderId(requested.id);
+    globeRef.current?.pointOfView?.({ lat: requested.lat, lng: requested.lng, altitude: 1.5 }, 1200);
+  }, [providerFromUrl, providersGeo]);
 
   const arcs = useMemo<ArcDatum[]>(() => {
     const deploymentMap = Object.fromEntries(deployments.map((item) => [item.id, item]));
@@ -261,7 +267,7 @@ function ProviderMapPageContent() {
     const base = selectedProvider?.uptime ?? 96;
     return Array.from({ length: 12 }, (_, idx) => ({
       slot: `${idx * 2}h`,
-      uptime: Number((base - Math.random() * 1.4 + (Math.random() * 0.6 - 0.3)).toFixed(2))
+      uptime: Number((base - ((idx % 4) * 0.22 - 0.33)).toFixed(2))
     }));
   }, [selectedProvider?.id, selectedProvider?.uptime]);
 
@@ -491,9 +497,5 @@ function ProviderMapPageContent() {
 }
 
 export default function ProviderMapPage() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <ProviderMapPageContent />
-    </QueryClientProvider>
-  );
+  return <ProviderMapPageContent />;
 }

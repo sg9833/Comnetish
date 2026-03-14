@@ -270,6 +270,7 @@ function OnboardFlow() {
 
     setRegistering(true);
     try {
+      const region = machine?.os === 'windows' ? 'local-windows' : machine?.os === 'mac' ? 'local-mac' : 'local-linux';
       const payload = JSON.stringify({
         action: 'comnetish_provider_register',
         stakeCnt: 1000,
@@ -294,28 +295,35 @@ function OnboardFlow() {
           data: txData
         });
 
-        const response = await fetch(`${API_BASE}/api/providers`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            address,
-            region: machine?.os === 'windows' ? 'local-windows' : machine?.os === 'mac' ? 'local-mac' : 'local-linux',
-            cpu: allocation.cpu,
-            memory: allocation.ramMb,
-            storage: allocation.storageGb,
-            pricePerCpu: 1,
-            signature
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error('Provider registration request failed');
-        }
-
         setRegistrationHash(txHash);
       } else {
         await new Promise((resolve) => setTimeout(resolve, 2000));
         setRegistrationHash(`0x${signature.slice(2, 18)}${Date.now().toString(16)}`);
+      }
+
+      const response = await fetch(`${API_BASE}/api/providers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address,
+          region,
+          cpu: allocation.cpu,
+          memory: allocation.ramMb,
+          storage: allocation.storageGb,
+          pricePerCpu: 1,
+          signature
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Provider registration request failed');
+      }
+
+      // Persist registered flag so dashboard doesn't redirect back to onboarding on reload
+      try {
+        localStorage.setItem(`comnetish_registered_${address.toLowerCase()}`, '1');
+      } catch {
+        // storage unavailable — ignore
       }
 
       setRegistered(true);
@@ -325,26 +333,36 @@ function OnboardFlow() {
     }
   }
 
-  const daemonConfig = useMemo(
-    () => ({
-      providerAddress: address ?? '0x-your-wallet',
-      network: 'comnetish-testnet',
-      resources: {
-        cpuCores: allocation.cpu,
-        ramMb: allocation.ramMb,
-        storageGb: allocation.storageGb
-      },
-      heartbeatIntervalSeconds: 15,
-      k3sApiEndpoint: 'https://127.0.0.1:6443'
-    }),
-    [address, allocation.cpu, allocation.ramMb, allocation.storageGb]
+  const providerConfigPreview = useMemo(
+    () => `chain:
+  id: comnetish-1
+  node: http://localhost:26657
+
+wallet:
+  keyName: provider1
+
+offerings:
+  cpu: "2"
+  memory: "4Gi"
+  storage: "20Gi"
+
+server:
+  host: 0.0.0.0
+  port: 8443
+
+health:
+  enabled: true
+  bind: 0.0.0.0:8080
+  path: /health`,
+    []
   );
 
   const launchCommand = useMemo(() => {
     if (machine?.os === 'windows') {
-      return 'wsl providerd --config ~/.comnetish/provider.json';
+      return 'wsl bash -lc "cd /path/to/comnetish && chmod +x scripts/setup-provider-fork.sh && ./scripts/setup-provider-fork.sh && cd provider && docker compose up -d"';
     }
-    return 'providerd --config ~/.comnetish/provider.json';
+
+    return 'chmod +x scripts/setup-provider-fork.sh && ./scripts/setup-provider-fork.sh && cd provider && docker compose up -d';
   }, [machine?.os]);
 
   useEffect(() => {
@@ -582,8 +600,8 @@ function OnboardFlow() {
                 <div className="cardHeader">
                   <div className="cardIcon">🚀</div>
                   <div>
-                    <h2 className="cardTitle">Launch provider daemon</h2>
-                    <p className="cardDesc">Run this command in your terminal. The daemon connects to the network and starts accepting workloads.</p>
+                    <h2 className="cardTitle">Launch local provider stack</h2>
+                    <p className="cardDesc">Run this from the repository root. It sets up the provider fork and starts the local provider services with Docker Compose.</p>
                   </div>
                 </div>
 
@@ -604,8 +622,8 @@ function OnboardFlow() {
 
                 {/* Config */}
                 <details className="configDetails">
-                  <summary className="configSummary">View generated config <span className="configPath">~/.comnetish/provider.json</span></summary>
-                  <pre className="configPre">{JSON.stringify(daemonConfig, null, 2)}</pre>
+                  <summary className="configSummary">View generated config <span className="configPath">provider/config.yaml</span></summary>
+                  <pre className="configPre">{providerConfigPreview}</pre>
                 </details>
 
                 {/* Daemon status */}
@@ -623,7 +641,7 @@ function OnboardFlow() {
                       <Spinner size="sm" />
                       <div>
                         <p className="daemonTitle">Waiting for daemon…</p>
-                        <p className="daemonSub">Run the command above, then this page updates automatically.</p>
+                        <p className="daemonSub">Run the command above from the repo root, then this page updates automatically when `http://localhost:8080/health` responds.</p>
                       </div>
                     </>
                   )}

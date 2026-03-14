@@ -16,8 +16,7 @@ const listBidQuerySchema = z.object({
 });
 
 const updateBidSchema = z.object({
-  // LOST is the only valid transition providers can make (withdrawing their bid)
-  status: z.enum(['LOST'])
+  status: z.enum(['OPEN', 'WON', 'LOST'])
 });
 
 const bids = new Hono();
@@ -81,7 +80,10 @@ bids.get('/', zValidator('query', listBidQuerySchema), async (c) => {
   return c.json({ data: items });
 });
 
-// Withdraw a bid: provider cancels their open bid (sets status to LOST)
+// Update a bid status. Supported transitions:
+// OPEN -> LOST (withdraw/reject)
+// OPEN -> WON (accept)
+// LOST/WON -> OPEN (manual reopen for dev flows)
 bids.patch('/:id', zValidator('json', updateBidSchema), async (c) => {
   const id = c.req.param('id');
   const { status } = c.req.valid('json');
@@ -90,8 +92,8 @@ bids.patch('/:id', zValidator('json', updateBidSchema), async (c) => {
   if (!bid) {
     throw new HttpError(404, 'Bid not found');
   }
-  if (bid.status !== 'OPEN') {
-    throw new HttpError(400, 'Only OPEN bids can be withdrawn');
+  if (bid.status !== 'OPEN' && status !== 'OPEN') {
+    throw new HttpError(400, 'Only OPEN bids can transition to WON/LOST');
   }
 
   const updated = await prisma.bid.update({
