@@ -21,7 +21,7 @@ type Provider = {
 type Deployment = {
   id: string;
   tenantAddress: string;
-  sdl: string;
+  sdl?: string | null;
   status: 'OPEN' | 'ACTIVE' | 'CLOSED';
   createdAt: string;
   closedAt?: string | null;
@@ -109,8 +109,11 @@ function formatTime(ts: string) {
   });
 }
 
-function deploymentTypeFromSDL(sdl: string): string {
-  const source = sdl.toLowerCase();
+function deploymentTypeFromSDL(sdl?: string | null): string {
+  const source = (sdl ?? '').toLowerCase();
+  if (!source.trim()) {
+    return 'Unknown';
+  }
   if (source.includes('postgres') || source.includes('redis') || source.includes('db')) {
     return 'Data + Storage';
   }
