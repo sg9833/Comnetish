@@ -1,0 +1,160 @@
+---
+import MarketingLayout from '../layouts/MarketingLayout.astro';
+---
+
+<MarketingLayout
+  title="Comnetish Docs — Getting Started"
+  description="Quick start documentation for deploying on Comnetish and joining as a provider."
+>
+  <main>
+    <section class="section">
+      <div class="wrap intro" data-reveal>
+        <p class="eyebrow">Docs</p>
+        <h1>Get started in under 10 minutes</h1>
+        <p>Use these quick paths to deploy your first workload or register your first provider node.</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap grid">
+        <article class="card doc" data-reveal>
+          <h2>Tenant quickstart</h2>
+          <ol>
+            <li>Create or connect your wallet in the console.</li>
+            <li>Open Deploy and describe your workload requirements.</li>
+            <li>Review provider bids and select a lease.</li>
+            <li>Track logs, health, and settlement from dashboard.</li>
+          </ol>
+          <a href="http://localhost:3000/deploy" class="btn btnPrimary">Open Deploy Console</a>
+        </article>
+
+        <article class="card doc" data-reveal>
+          <h2>Provider quickstart</h2>
+          <ol>
+            <li>Open provider onboarding flow.</li>
+            <li>Detect machine resources and install dependencies.</li>
+            <li>Stake 1000 CNT and complete registration.</li>
+            <li>Start daemon and verify heartbeat status.</li>
+          </ol>
+          <a href="http://localhost:3002/onboard" class="btn btnGhost">Open Provider Onboarding</a>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <article class="card commands" data-reveal>
+          <h2>Useful commands</h2>
+          <div class="cmdGrid">
+            <div>
+              <h3>Run website</h3>
+              <pre><code>pnpm --filter @comnetish/website dev</code></pre>
+            </div>
+            <div>
+              <h3>Run API</h3>
+              <pre><code>pnpm --filter @comnetish/api dev</code></pre>
+            </div>
+            <div>
+              <h3>Run console</h3>
+              <pre><code>pnpm --filter @comnetish/console dev</code></pre>
+            </div>
+            <div>
+              <h3>Run provider console</h3>
+              <pre><code>pnpm --filter @comnetish/provider-console dev</code></pre>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <style>
+    .intro h1 {
+      margin: 8px 0;
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-family: Syne, Inter, sans-serif;
+    }
+
+    .intro p {
+      color: var(--muted);
+      max-width: 60ch;
+      line-height: 1.6;
+    }
+
+    .eyebrow {
+      margin: 0;
+      color: var(--mint);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+      font-size: 0.82rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .doc {
+      padding: 20px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .doc h2 {
+      margin: 0;
+      font-family: Syne, Inter, sans-serif;
+      font-size: 1.4rem;
+    }
+
+    .doc ol {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--muted);
+      line-height: 1.66;
+    }
+
+    .commands {
+      padding: 20px;
+    }
+
+    .commands h2 {
+      margin-top: 0;
+      font-family: Syne, Inter, sans-serif;
+    }
+
+    .cmdGrid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .cmdGrid h3 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+      color: #c7d8ea;
+    }
+
+    pre {
+      margin: 0;
+      border: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 12px;
+      padding: 12px;
+      overflow-x: auto;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace;
+      color: #c0f6e7;
+    }
+
+    @media (max-width: 940px) {
+      .grid,
+      .cmdGrid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</MarketingLayout>

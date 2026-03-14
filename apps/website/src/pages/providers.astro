@@ -1,0 +1,189 @@
+---
+import MarketingLayout from '../layouts/MarketingLayout.astro';
+---
+
+<MarketingLayout
+  title="Become a Comnetish Provider"
+  description="Monetize idle compute by running the Comnetish provider daemon and earning CNT rewards."
+>
+  <main>
+    <section class="section">
+      <div class="wrap hero" data-reveal>
+        <p class="eyebrow">Provider Network</p>
+        <h1>Monetize your hardware with verifiable decentralized compute.</h1>
+        <p>
+          Offer CPU, memory, and storage capacity to tenants globally. Comnetish handles lease matching and settlement while you run the provider daemon.
+        </p>
+        <a href="http://localhost:3002/onboard" class="btn btnPrimary">Start 5-minute onboarding</a>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <h2 class="sectionTitle" data-reveal>Why become a provider?</h2>
+        <div class="benefits">
+          <article class="card" data-reveal>
+            <h3>Earn on idle compute</h3>
+            <p>Convert underutilized laptops, workstations, or server nodes into recurring CNT revenue streams.</p>
+          </article>
+          <article class="card" data-reveal>
+            <h3>Transparent settlement</h3>
+            <p>Lease lifecycle and payments are anchored on-chain with auditable state transitions.</p>
+          </article>
+          <article class="card" data-reveal>
+            <h3>Portable infrastructure</h3>
+            <p>Run workloads with Kubernetes and Docker primitives you already know.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <h2 class="sectionTitle" data-reveal>Earnings Calculator</h2>
+        <p class="sectionSub" data-reveal>Estimate monthly earnings based on your offered machine profile.</p>
+        <div class="card calc" data-earnings-calculator data-reveal>
+          <div>
+            <label>
+              CPU Cores: <strong data-output="cpu">4</strong>
+              <input data-input="cpu" type="range" min="1" max="64" value="4" />
+            </label>
+            <label>
+              RAM (GB): <strong data-output="ram">16</strong>
+              <input data-input="ram" type="range" min="1" max="256" value="16" />
+            </label>
+          </div>
+          <div class="result">
+            <span>Projected monthly rewards</span>
+            <strong data-output="cnt">0 CNT</strong>
+            <small data-output="usd">$0.00</small>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <div class="card callout" data-reveal>
+          <h2 class="sectionTitle">Provider requirements</h2>
+          <ul>
+            <li>Stable internet connection with open outbound HTTPS.</li>
+            <li>Docker and k3s installed locally.</li>
+            <li>Wallet connected with 1000 CNT stake for registration.</li>
+            <li>Provider daemon heartbeat running continuously.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <style>
+    .hero h1 {
+      margin: 10px 0;
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-family: Syne, Inter, sans-serif;
+      max-width: 14ch;
+      line-height: 1.06;
+    }
+
+    .hero p {
+      color: var(--muted);
+      max-width: 64ch;
+      line-height: 1.6;
+      margin: 0 0 22px;
+    }
+
+    .eyebrow {
+      margin: 0;
+      color: var(--mint);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+      font-size: 0.82rem;
+    }
+
+    .benefits {
+      margin-top: 22px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .benefits article {
+      padding: 18px;
+    }
+
+    .benefits h3 {
+      margin: 0;
+      font-size: 1.08rem;
+    }
+
+    .benefits p {
+      color: var(--muted);
+      line-height: 1.56;
+      margin: 8px 0 0;
+    }
+
+    .calc {
+      margin-top: 22px;
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 12px;
+    }
+
+    .calc label {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .calc input[type='range'] {
+      width: 100%;
+      accent-color: #00ffc2;
+    }
+
+    .result {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 16px;
+      display: grid;
+      gap: 6px;
+      align-content: center;
+    }
+
+    .result span {
+      color: var(--muted);
+    }
+
+    .result strong {
+      color: var(--mint);
+      font-size: 1.65rem;
+      font-family: Syne, Inter, sans-serif;
+    }
+
+    .result small {
+      color: #c8d7e8;
+      font-size: 1.02rem;
+    }
+
+    .callout {
+      padding: 22px;
+    }
+
+    .callout ul {
+      margin: 14px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.72;
+    }
+
+    @media (max-width: 980px) {
+      .benefits,
+      .calc {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</MarketingLayout>

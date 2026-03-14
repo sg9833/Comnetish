@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Provider {
+  id          String         @id @default(cuid())
+  address     String         @unique
+  region      String
+  cpu         Int
+  memory      Int
+  storage     Int
+  pricePerCpu Float
+  status      ProviderStatus @default(ACTIVE)
+  lastSeen    DateTime       @default(now())
+  bids        Bid[]
+  leases      Lease[]
+
+  @@index([region])
+  @@index([status])
+}
+
+model Deployment {
+  id            String           @id @default(cuid())
+  tenantAddress String
+  sdl           String
+  status        DeploymentStatus @default(OPEN)
+  createdAt     DateTime         @default(now())
+  closedAt      DateTime?
+  bids          Bid[]
+  leases        Lease[]
+
+  @@index([tenantAddress])
+  @@index([status])
+}
+
+model Lease {
+  id            String      @id @default(cuid())
+  deploymentId  String
+  providerId    String
+  status        LeaseStatus @default(PENDING)
+  startedAt     DateTime    @default(now())
+  pricePerBlock Float
+  deployment    Deployment  @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+  provider      Provider    @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([deploymentId])
+  @@index([providerId])
+}
+
+model Bid {
+  id           String     @id @default(cuid())
+  deploymentId String
+  providerId   String
+  price        Float
+  status       BidStatus  @default(OPEN)
+  deployment   Deployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+  provider     Provider   @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([deploymentId])
+  @@index([providerId])
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  type      String
+  from      String
+  to        String
+  amount    Float
+  token     String
+  txHash    String   @unique
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([createdAt])
+}
+
+enum ProviderStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum DeploymentStatus {
+  OPEN
+  ACTIVE
+  CLOSED
+}
+
+enum LeaseStatus {
+  PENDING
+  ACTIVE
+  CLOSED
+}
+
+enum BidStatus {
+  OPEN
+  WON
+  LOST
+}

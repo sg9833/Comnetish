@@ -1,0 +1,315 @@
+---
+type Props = {
+  title: string;
+  description: string;
+};
+
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <title>{title}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Syne:wght@500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #060a12;
+        --surface: #0f1827;
+        --surface-soft: #111d2f;
+        --text: #e7eef8;
+        --muted: #9bb0c7;
+        --mint: #00ffc2;
+        --mint-soft: rgba(0, 255, 194, 0.14);
+        --border: rgba(255, 255, 255, 0.1);
+        --danger: #ff6b35;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: radial-gradient(circle at 15% 0%, rgba(0, 255, 194, 0.08), transparent 36%),
+          radial-gradient(circle at 85% 0%, rgba(114, 141, 255, 0.09), transparent 35%), var(--bg);
+        color: var(--text);
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        min-height: 100%;
+        overflow-x: hidden;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .wrap {
+        width: min(1080px, calc(100% - 4rem));
+        margin: 0 auto;
+      }
+
+      main {
+        padding-bottom: 1.5rem;
+      }
+
+      header.site {
+        position: sticky;
+        top: 0;
+        backdrop-filter: blur(10px);
+        background: rgba(6, 10, 18, 0.72);
+        border-bottom: 1px solid var(--border);
+        z-index: 20;
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 72px;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-family: Syne, Inter, sans-serif;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--mint);
+        box-shadow: 0 0 18px rgba(0, 255, 194, 0.7);
+      }
+
+      .navLinks {
+        display: inline-flex;
+        align-items: center;
+        gap: 22px;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        padding: 0.78rem 1.05rem;
+        font-weight: 600;
+        transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+      }
+
+      .btn:hover {
+        transform: translateY(-1px);
+      }
+
+      .btnPrimary {
+        background: linear-gradient(135deg, #00ffc2, #78ffd9);
+        color: #021117;
+        border-color: transparent;
+        box-shadow: 0 10px 28px rgba(0, 255, 194, 0.25);
+      }
+
+      .btnGhost {
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      section {
+        scroll-margin-top: 110px;
+      }
+
+      .section {
+        padding: 76px 0;
+      }
+
+      .sectionTitle {
+        margin: 0;
+        font-family: Syne, Inter, sans-serif;
+        font-size: clamp(1.5rem, 2.5vw, 2.2rem);
+      }
+
+      .sectionSub {
+        color: var(--muted);
+        margin: 10px 0 0;
+      }
+
+      .card {
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, rgba(18, 26, 41, 0.82), rgba(11, 17, 29, 0.86));
+        border-radius: 16px;
+      }
+
+      [data-reveal] {
+        opacity: 0;
+        transform: translateY(12px);
+        transition: opacity 560ms ease, transform 560ms ease;
+      }
+
+      [data-reveal].in {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .footer {
+        border-top: 1px solid var(--border);
+        padding: 28px 0 42px;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      @media (max-width: 860px) {
+        .wrap {
+          width: min(1080px, calc(100% - 1.5rem));
+        }
+
+        .nav {
+          height: auto;
+          flex-wrap: wrap;
+          gap: 12px;
+          padding: 16px 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site">
+      <div class="wrap nav">
+        <a href="/" class="brand" aria-label="Comnetish home">
+          <span class="dot"></span>
+          <span>Comnetish</span>
+        </a>
+        <nav class="navLinks" aria-label="Primary">
+          <a href="/">Home</a>
+          <a href="/providers">Providers</a>
+          <a href="/docs">Docs</a>
+          <a class="btn btnGhost" href="http://localhost:3000/deploy">Deploy Now</a>
+        </nav>
+      </div>
+    </header>
+    <slot />
+    <footer class="footer">
+      <div class="wrap">© {new Date().getFullYear()} Comnetish. Decentralized cloud compute marketplace.</div>
+    </footer>
+
+    <script>
+      const revealTargets = Array.from(document.querySelectorAll('[data-reveal]'));
+      const observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('in');
+              observer.unobserve(entry.target);
+            }
+          }
+        },
+        { threshold: 0.16 }
+      );
+
+      for (const node of revealTargets) {
+        observer.observe(node);
+      }
+
+      const statsEl = document.querySelector<HTMLElement>('[data-live-stats]');
+      if (statsEl) {
+        const providersNode = statsEl.querySelector<HTMLElement>('[data-stat="providers"]');
+        const deploymentsNode = statsEl.querySelector<HTMLElement>('[data-stat="deployments"]');
+        const volumeNode = statsEl.querySelector<HTMLElement>('[data-stat="volume"]');
+        const API_BASE = statsEl.getAttribute('data-api') || 'http://localhost:3001';
+
+        const setValue = (el: HTMLElement | null, value: string) => {
+          if (el) {
+            el.textContent = value;
+          }
+        };
+
+        const loadStats = async () => {
+          try {
+            const [providerRes, platformRes] = await Promise.all([
+              fetch(`${API_BASE}/providers/stats`),
+              fetch(`${API_BASE}/stats`)
+            ]);
+
+            if (!providerRes.ok || !platformRes.ok) {
+              throw new Error('failed');
+            }
+
+            const providerPayload = await providerRes.json();
+            const platformPayload = await platformRes.json();
+            const providers = providerPayload?.data?.active ?? providerPayload?.data?.total ?? 0;
+            const deployments = platformPayload?.data?.totalDeployments ?? 0;
+            const volume = platformPayload?.data?.cntVolume ?? 0;
+
+            setValue(providersNode, Number(providers).toLocaleString());
+            setValue(deploymentsNode, Number(deployments).toLocaleString());
+            setValue(volumeNode, `${Number(volume).toLocaleString()} CNT`);
+          } catch {
+            setValue(providersNode, '—');
+            setValue(deploymentsNode, '—');
+            setValue(volumeNode, '—');
+          }
+        };
+
+        loadStats();
+        setInterval(loadStats, 30_000);
+      }
+
+      const calculatorRoots = Array.from(document.querySelectorAll<HTMLElement>('[data-earnings-calculator]'));
+      for (const root of calculatorRoots) {
+        const cpuInput = root.querySelector<HTMLInputElement>('[data-input="cpu"]');
+        const ramInput = root.querySelector<HTMLInputElement>('[data-input="ram"]');
+        const cpuOut = root.querySelector<HTMLElement>('[data-output="cpu"]');
+        const ramOut = root.querySelector<HTMLElement>('[data-output="ram"]');
+        const cntOut = root.querySelector<HTMLElement>('[data-output="cnt"]');
+        const usdOut = root.querySelector<HTMLElement>('[data-output="usd"]');
+
+        const compute = () => {
+          const cpu = Number(cpuInput?.value || 2);
+          const ram = Number(ramInput?.value || 4);
+          const cntMonthly = cpu * 230 + ram * 38;
+          const usdMonthly = cntMonthly * 0.19;
+
+          if (cpuOut) cpuOut.textContent = String(cpu);
+          if (ramOut) ramOut.textContent = String(ram);
+          if (cntOut) cntOut.textContent = `${cntMonthly.toLocaleString()} CNT`;
+          if (usdOut) usdOut.textContent = `$${usdMonthly.toFixed(2)}`;
+        };
+
+        cpuInput?.addEventListener('input', compute);
+        ramInput?.addEventListener('input', compute);
+        compute();
+      }
+
+      const captureForm = document.querySelector<HTMLFormElement>('[data-email-capture]');
+      if (captureForm) {
+        const statusNode = captureForm.querySelector<HTMLElement>('[data-capture-status]');
+        captureForm.addEventListener('submit', (event) => {
+          event.preventDefault();
+          const emailInput = captureForm.querySelector<HTMLInputElement>('input[type="email"]');
+          const value = emailInput?.value?.trim() || '';
+          if (!value || !value.includes('@')) {
+            if (statusNode) statusNode.textContent = 'Enter a valid email address.';
+            return;
+          }
+          if (statusNode) statusNode.textContent = 'You are on the waitlist. We will reach out shortly.';
+          captureForm.reset();
+        });
+      }
+    </script>
+  </body>
+</html>

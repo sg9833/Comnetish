@@ -1,0 +1,567 @@
+---
+import MarketingLayout from '../layouts/MarketingLayout.astro';
+
+const apiBase = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3001';
+---
+
+<MarketingLayout
+  title="Comnetish — Decentralized Cloud. Finally Usable."
+  description="Deploy containers on a decentralized provider marketplace with lower costs and transparent on-chain economics."
+>
+  <main>
+    <section class="hero section">
+      <canvas id="heroParticles" width="1200" height="560" aria-hidden="true"></canvas>
+      <div class="wrap heroInner">
+        <div data-reveal>
+          <p class="eyebrow">Decentralized cloud, production-ready UX</p>
+          <h1>Decentralized Cloud. Finally Usable.</h1>
+          <p class="lead">
+            Deploy workloads in minutes, let providers bid in real-time, and pay only for what runs. Comnetish gives you cloud economics without legacy hyperscaler lock-in.
+          </p>
+          <div class="heroActions">
+            <a href="http://localhost:3000/deploy" class="btn btnPrimary">Deploy Now</a>
+            <a href="/providers" class="btn btnGhost">Become a Provider</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section statsBarWrap" data-live-stats data-api={apiBase}>
+      <div class="wrap">
+        <div class="statsBar card" data-reveal>
+          <div>
+            <span>Live Providers</span>
+            <strong data-stat="providers">—</strong>
+          </div>
+          <div>
+            <span>Deployments Today</span>
+            <strong data-stat="deployments">—</strong>
+          </div>
+          <div>
+            <span>CNT Volume</span>
+            <strong data-stat="volume">—</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <h2 class="sectionTitle" data-reveal>How It Works</h2>
+        <p class="sectionSub" data-reveal>From deploy intent to live containers in three market-driven steps.</p>
+        <div class="howGrid">
+          <article class="card howCard" data-reveal>
+            <div class="howIcon">🚀</div>
+            <h3>1. Deploy</h3>
+            <p>Define workload requirements in seconds from console or SDL.</p>
+          </article>
+          <article class="card howCard" data-reveal>
+            <div class="howIcon">⚡</div>
+            <h3>2. Providers Bid</h3>
+            <p>Provider nodes compete on price and reliability in real time.</p>
+          </article>
+          <article class="card howCard" data-reveal>
+            <div class="howIcon">📦</div>
+            <h3>3. Container Runs</h3>
+            <p>Best lease is selected and workload starts on decentralized compute.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <h2 class="sectionTitle" data-reveal>Comnetish vs AWS</h2>
+        <p class="sectionSub" data-reveal>Representative monthly pricing for common workloads.</p>
+        <div class="tableWrap card" data-reveal>
+          <table>
+            <thead>
+              <tr>
+                <th>Workload</th>
+                <th>Comnetish</th>
+                <th>AWS</th>
+                <th>Savings</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Node.js API (2 vCPU / 4GB)</td>
+                <td>$39 / mo</td>
+                <td>$82 / mo</td>
+                <td class="mint">52%</td>
+              </tr>
+              <tr>
+                <td>Python API (4 vCPU / 8GB)</td>
+                <td>$68 / mo</td>
+                <td>$146 / mo</td>
+                <td class="mint">53%</td>
+              </tr>
+              <tr>
+                <td>PostgreSQL DB (4 vCPU / 16GB)</td>
+                <td>$119 / mo</td>
+                <td>$279 / mo</td>
+                <td class="mint">57%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <h2 class="sectionTitle" data-reveal>Provider Earnings Calculator</h2>
+        <p class="sectionSub" data-reveal>Estimate monthly rewards from your offered machine resources.</p>
+        <div class="card calc" data-earnings-calculator data-reveal>
+          <div>
+            <label>
+              CPU Cores: <strong data-output="cpu">2</strong>
+              <input data-input="cpu" type="range" min="1" max="32" value="2" />
+            </label>
+            <label>
+              RAM (GB): <strong data-output="ram">4</strong>
+              <input data-input="ram" type="range" min="1" max="128" value="4" />
+            </label>
+          </div>
+          <div class="calcOut">
+            <span>Estimated monthly earnings</span>
+            <strong data-output="cnt">0 CNT</strong>
+            <small data-output="usd">$0.00</small>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <h2 class="sectionTitle" data-reveal>Built on proven open-source infrastructure</h2>
+        <div class="techGrid">
+          <article class="card tech" data-reveal>
+            <svg width="40" height="40" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+              <circle cx="32" cy="32" r="30" stroke="#00ffc2" stroke-width="2" />
+              <path d="M12 32h40M32 12c8 7 8 33 0 40M32 12c-8 7-8 33 0 40" stroke="#8fd3ff" stroke-width="2" />
+            </svg>
+            <h3>Cosmos SDK</h3>
+            <p>On-chain market settlement and provider identity security.</p>
+          </article>
+          <article class="card tech" data-reveal>
+            <svg width="40" height="40" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+              <rect x="8" y="10" width="48" height="44" rx="8" stroke="#00ffc2" stroke-width="2" />
+              <path d="M8 24h48M24 10v44M40 10v44" stroke="#8fd3ff" stroke-width="2" />
+            </svg>
+            <h3>Kubernetes</h3>
+            <p>Portable container orchestration for predictable runtime behavior.</p>
+          </article>
+          <article class="card tech" data-reveal>
+            <svg width="40" height="40" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+              <rect x="7" y="16" width="50" height="32" rx="6" stroke="#00ffc2" stroke-width="2" />
+              <path d="M17 16v32M30 16v32M43 16v32" stroke="#8fd3ff" stroke-width="2" />
+            </svg>
+            <h3>Docker</h3>
+            <p>Standardized images and reproducible app packaging across providers.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <div class="card cta" data-reveal>
+          <div>
+            <h2 class="sectionTitle">Ready to leave AWS behind?</h2>
+            <p class="sectionSub">Get early access updates and migration playbooks.</p>
+          </div>
+          <form data-email-capture>
+            <label class="srOnly" for="email">Email</label>
+            <input id="email" type="email" placeholder="you@company.com" required />
+            <button type="submit" class="btn btnPrimary">Join waitlist</button>
+            <small data-capture-status aria-live="polite"></small>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <style>
+    .hero {
+      min-height: 560px;
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      align-items: center;
+    }
+
+    #heroParticles {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      opacity: 0.85;
+      pointer-events: none;
+    }
+
+    .heroInner {
+      position: relative;
+      z-index: 1;
+      padding: 72px 0;
+    }
+
+    .eyebrow {
+      margin: 0 0 14px;
+      color: var(--mint);
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      font-size: 0.82rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: Syne, Inter, sans-serif;
+      font-size: clamp(2.25rem, 6.2vw, 4.2rem);
+      line-height: 1.03;
+      max-width: 13ch;
+    }
+
+    .lead {
+      margin: 20px 0 0;
+      color: var(--muted);
+      max-width: 60ch;
+      line-height: 1.62;
+      font-size: 1.05rem;
+    }
+
+    .heroActions {
+      margin-top: 28px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .statsBarWrap {
+      padding-top: 0;
+    }
+
+    .statsBar {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      padding: 18px;
+    }
+
+    .statsBar > div {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      background: rgba(0, 0, 0, 0.2);
+      min-height: 90px;
+      display: grid;
+      align-content: center;
+      gap: 8px;
+    }
+
+    .statsBar span {
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .statsBar strong {
+      font-size: clamp(1.25rem, 2.4vw, 1.8rem);
+      font-family: Syne, Inter, sans-serif;
+    }
+
+    .howGrid {
+      margin-top: 24px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .howCard {
+      padding: 18px;
+    }
+
+    .howIcon {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      background: var(--mint-soft);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      margin-bottom: 14px;
+      animation: bob 2.4s ease-in-out infinite;
+    }
+
+    .howCard h3 {
+      margin: 0;
+      font-size: 1.06rem;
+    }
+
+    .howCard p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .tableWrap {
+      margin-top: 22px;
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 700px;
+    }
+
+    th,
+    td {
+      padding: 14px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+
+    th {
+      font-size: 0.84rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+
+    .mint {
+      color: var(--mint);
+      font-weight: 700;
+    }
+
+    .calc {
+      margin-top: 24px;
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .calc label {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .calc input[type='range'] {
+      width: 100%;
+      accent-color: #00ffc2;
+    }
+
+    .calcOut {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.24);
+      display: grid;
+      gap: 6px;
+      justify-items: start;
+    }
+
+    .calcOut span {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .calcOut strong {
+      font-family: Syne, Inter, sans-serif;
+      font-size: 1.75rem;
+      color: var(--mint);
+    }
+
+    .calcOut small {
+      font-size: 1.05rem;
+      color: #c8d7e8;
+    }
+
+    .techGrid {
+      margin-top: 24px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .tech {
+      padding: 18px;
+    }
+
+    .tech h3 {
+      margin: 12px 0 6px;
+      font-size: 1.04rem;
+    }
+
+    .tech p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .cta {
+      padding: 24px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .cta form {
+      display: grid;
+      grid-template-columns: minmax(240px, 360px) auto;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .cta input {
+      height: 44px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.2);
+      color: var(--text);
+      padding: 0 12px;
+      font: inherit;
+    }
+
+    .cta small {
+      grid-column: 1 / -1;
+      color: var(--muted);
+      min-height: 1.2em;
+    }
+
+    .srOnly {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @keyframes bob {
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-4px);
+      }
+    }
+
+    @media (max-width: 980px) {
+      .howGrid,
+      .techGrid {
+        grid-template-columns: 1fr;
+      }
+
+      .calc,
+      .cta {
+        grid-template-columns: 1fr;
+      }
+
+      .cta form {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .statsBar {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+
+  <script>
+    const canvas = document.getElementById('heroParticles');
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (canvas instanceof HTMLCanvasElement && !reduced) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        const DPR = window.devicePixelRatio || 1;
+          type Particle = { x: number; y: number; vx: number; vy: number; r: number };
+          const particles: Particle[] = [];
+        const count = 44;
+
+        const resize = () => {
+          const { width, height } = canvas.getBoundingClientRect();
+          canvas.width = Math.floor(width * DPR);
+          canvas.height = Math.floor(height * DPR);
+          ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+        };
+
+        const resetParticles = () => {
+          particles.length = 0;
+          const w = canvas.clientWidth;
+          const h = canvas.clientHeight;
+          for (let i = 0; i < count; i += 1) {
+            particles.push({
+              x: Math.random() * w,
+              y: Math.random() * h,
+              vx: (Math.random() - 0.5) * 0.2,
+              vy: (Math.random() - 0.5) * 0.2,
+              r: 1 + Math.random() * 2.8
+            });
+          }
+        };
+
+        const frame = () => {
+          const w = canvas.clientWidth;
+          const h = canvas.clientHeight;
+          ctx.clearRect(0, 0, w, h);
+
+          for (const p of particles) {
+            p.x += p.vx;
+            p.y += p.vy;
+            if (p.x < 0 || p.x > w) p.vx *= -1;
+            if (p.y < 0 || p.y > h) p.vy *= -1;
+
+            ctx.beginPath();
+            ctx.fillStyle = 'rgba(0,255,194,0.72)';
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          for (let i = 0; i < particles.length; i += 1) {
+            for (let j = i + 1; j < particles.length; j += 1) {
+              const a = particles[i];
+              const b = particles[j];
+              if (!a || !b) {
+                continue;
+              }
+              const dx = a.x - b.x;
+              const dy = a.y - b.y;
+              const d = Math.sqrt(dx * dx + dy * dy);
+              if (d < 120) {
+                ctx.beginPath();
+                ctx.strokeStyle = `rgba(143,211,255,${0.18 - d / 900})`;
+                ctx.lineWidth = 1;
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
+                ctx.stroke();
+              }
+            }
+          }
+
+          requestAnimationFrame(frame);
+        };
+
+        resize();
+        resetParticles();
+        frame();
+        window.addEventListener('resize', () => {
+          resize();
+          resetParticles();
+        });
+      }
+    }
+  </script>
+</MarketingLayout>
