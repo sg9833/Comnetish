@@ -1,265 +1,281 @@
 # Comnetish
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/comnetish/comnetish/ci.yml?branch=main&style=for-the-badge)](https://github.com/comnetish/comnetish/actions)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-0b5fff?style=for-the-badge)](https://www.apache.org/licenses/LICENSE-2.0)
-[![GitHub Stars](https://img.shields.io/github/stars/comnetish/comnetish?style=for-the-badge)](https://github.com/comnetish/comnetish/stargazers)
 
-![Comnetish Hero](./docs/assets/hero.png)
+Comnetish is a decentralized cloud compute marketplace. Tenants describe workloads in SDL, providers bid in real time, containers launch on distributed capacity, and settlement flows through on-chain economics.
 
-> **Hero image placeholder:** add your product screenshot/GIF to `docs/assets/hero.png` (recommended: 1600×900, dark background, console + provider map visible).
+This monorepo includes the full product surface: tenant console, provider console, marketing website, REST API, chain client SDK, smart contracts, and an AI agent service.
 
-Comnetish is a decentralized cloud compute marketplace that makes multi-provider infrastructure feel as smooth as modern PaaS: tenants describe workloads, providers bid in real time, containers launch on distributed capacity, and settlement flows through transparent on-chain economics. This monorepo includes the full product surface—console apps, marketing site, API services, provider tooling, chain/client SDK, and smart contracts.
+---
 
-## ✨ Core Features
+## Architecture
 
-- 🚀 **Intent-based deployment wizard** with AI/manual SDL generation
-- 🌍 **Real-time provider topology map** with bid and lease visibility
-- 💸 **Transparent price discovery** through provider bidding
-- 🧾 **On-chain payment escrow** for trust-minimized settlement
-- 🖥️ **Provider onboarding in minutes** (resource detection + wallet registration)
-- 🔗 **Typed chain SDK** for transaction and query orchestration
-- 🧠 **Bun + Hono API** with Prisma-backed marketplace endpoints
-- 🎨 **Premium dark-mode design system** shared across apps
-
-## 🏗️ Architecture
-
-```text
-													 ┌──────────────────────────┐
-													 │      apps/website        │
-													 │    Astro marketing site  │
-													 └─────────────┬────────────┘
-																				 │
-┌──────────────────────────┐             │             ┌──────────────────────────┐
-│      apps/console        │─────────────┼────────────▶│      services/api        │
-│ Tenant deploy/dashboard  │             │             │ Bun + Hono + Prisma      │
-└─────────────┬────────────┘             │             └─────────────┬────────────┘
-							│                          │                           │
-┌─────────────▼────────────┐             │             ┌─────────────▼────────────┐
-│   apps/provider-console  │─────────────┘             │   packages/chain-client   │
-│ Provider onboarding/ops  │                           │ Typed Cosmos SDK client    │
-└─────────────┬────────────┘                           └─────────────┬────────────┘
-							│                                                      │
-							│                                   ┌──────────────────▼──────────────────┐
-							└──────────────────────────────────▶│       chain + contracts layer        │
-																									│ comnetishd fork + Hardhat escrow     │
-																									└───────────────────────────────────────┘
+```
+┌─────────────────────────┐       ┌─────────────────────────┐
+│     apps/console        │──────▶│      services/api        │
+│  Tenant deploy/dash     │       │  Bun + Hono + Prisma     │
+└─────────────────────────┘       └────────────┬────────────┘
+                                               │
+┌─────────────────────────┐       ┌────────────▼────────────┐
+│  apps/provider-console  │──────▶│  packages/chain-client  │
+│  Provider onboarding    │       │  Typed Cosmos SDK client │
+└─────────────────────────┘       └────────────┬────────────┘
+                                               │
+┌─────────────────────────┐       ┌────────────▼────────────┐
+│     apps/website        │       │      contracts/         │
+│   Astro marketing site  │       │   Hardhat + Solidity    │
+└─────────────────────────┘       └─────────────────────────┘
 ```
 
-## ⚡ Quick Start (5 commands)
+---
+
+## Quick Start
+
+### Prerequisites
+
+| Tool                                     | Version | Required for                |
+| ---------------------------------------- | ------- | --------------------------- |
+| [Bun](https://bun.sh)                    | 1.0+    | API service, AI agent       |
+| [Node.js](https://nodejs.org)            | 20+     | Next.js consoles, website   |
+| [pnpm](https://pnpm.io)                  | 9+      | Monorepo package management |
+| [PostgreSQL](https://www.postgresql.org) | 14+     | API database                |
 
 ```bash
-git clone https://github.com/comnetish/comnetish.git
+bun --version
+node -v        # >= 20
+pnpm -v        # >= 9
+psql --version # >= 14
+```
+
+### One-command setup
+
+```bash
+git clone https://github.com/<your-org>/comnetish.git
 cd comnetish
-cp .env.example .env
-pnpm install
-pnpm dev
+chmod +x setup.sh
+./setup.sh
 ```
 
-After boot:
+The setup script handles everything: dependency install, database creation, migrations, and seeding.
 
-- Console: `http://localhost:3000`
-- Provider Console: `http://localhost:3002`
-- Marketing Website: `http://localhost:4321`
-- API: `http://localhost:3001`
-
-## 🧰 Full Local Development Setup
-
-### 1) Prerequisites
-
-Install and verify:
+### Start all services
 
 ```bash
-node -v     # >= 20
-pnpm -v
-go version  # >= 1.21
-docker --version
-kubectl version --client
+./start-services.sh
 ```
 
-Required runtime stack:
+This opens 4 terminal windows, one per service.
 
-- **Node.js 20+**
-- **pnpm 9+**
-- **Go 1.21+**
-- **Docker / Docker Desktop**
-- **k3s** (or k3d-backed local cluster)
+| Service          | URL                   | Description                        |
+| ---------------- | --------------------- | ---------------------------------- |
+| Tenant Console   | http://localhost:3002 | Create and manage deployments      |
+| Provider Console | http://localhost:3001 | Register and manage provider nodes |
+| API              | http://localhost:3000 | REST API (Hono + Prisma)           |
+| AI Agent         | http://localhost:3010 | SDL generation and inference       |
+| Website          | http://localhost:4321 | Marketing site (Astro)             |
 
-### 2) Install dependencies and env
+### Verify everything is running
 
 ```bash
-cp .env.example .env
+./verify.sh
+```
+
+---
+
+## Manual Setup (step by step)
+
+### 1. Install dependencies
+
+```bash
 pnpm install
 ```
 
-### 3) Chain setup (Comnetish local fork)
-
-Use the automated script from this repo root:
+### 2. Configure environment
 
 ```bash
-chmod +x scripts/setup-chain-fork.sh
-./scripts/setup-chain-fork.sh
+cp .env.example .env
+cp services/api/.env.example services/api/.env.local
 ```
 
-What it does:
+Edit `services/api/.env.local` and set your `DATABASE_URL`:
 
-- Clones Akash node fork into `./chain`
-- Rebrands binaries and token naming toward Comnetish/CNT
-- Builds `comnetishd`
-- Initializes single-validator local testnet (`comnetish-1`)
-- Creates demo wallets (`tenant1`, `provider1`, `provider2`)
-- Starts node in background and writes logs/PID
-
-### 4) Provider setup (local daemon + health)
-
-```bash
-chmod +x scripts/setup-provider-fork.sh
-./scripts/setup-provider-fork.sh
-cd provider && docker compose up -d
+```env
+DATABASE_URL=postgresql://<user>@localhost:5432/comnetish_dev
 ```
 
-What it generates:
-
-- `provider/config.yaml`
-- `provider/docker-compose.yml`
-- macOS helper: `provider/scripts/setup-k3s-macos.sh`
-- Windows helper doc: `provider/scripts/WSL2-K3S-INSTRUCTIONS.md`
-
-### 5) Run console + API
-
-All services:
+### 3. Create database and run migrations
 
 ```bash
+createdb comnetish_dev
+cd services/api
+export DATABASE_URL="postgresql://<user>@localhost:5432/comnetish_dev"
+pnpm prisma migrate dev --name init
+pnpm prisma db seed
+```
+
+### 4. Start services individually
+
+```bash
+# Terminal 1 — API (port 3000)
+cd services/api && API_PORT=3000 bun run src/index.ts
+
+# Terminal 2 — AI Agent (port 3010)
+cd services/ai-agent && pnpm build && pnpm start
+
+# Terminal 3 — Provider Console (port 3001)
+cd apps/provider-console && pnpm dev
+
+# Terminal 4 — Tenant Console (port 3002)
+cd apps/console && PORT=3002 pnpm dev
+
+# Terminal 5 (optional) — Website (port 4321)
+cd apps/website && pnpm dev
+```
+
+---
+
+## Multi-Laptop Provider Network
+
+Use this when running a decentralized demo across multiple physical machines.
+
+**Topology:**
+
+- **Your laptop** — API + tenant console
+- **Friend's laptop** — provider console pointing at your API
+
+### On your laptop
+
+Start the API bound to all network interfaces:
+
+```bash
+cd services/api
+API_HOST=0.0.0.0 API_PORT=3000 bun run src/index.ts
+```
+
+Find your local IP:
+
+```bash
+ipconfig getifaddr en0   # macOS
+```
+
+### On your friend's laptop
+
+1. Clone the repo and install dependencies:
+
+```bash
+git clone https://github.com/<your-org>/comnetish.git
+cd comnetish
+pnpm install
+```
+
+2. Create `apps/provider-console/.env.local`:
+
+```env
+NEXT_PUBLIC_API_URL=http://<YOUR_LAPTOP_IP>:3000
+```
+
+3. Start the provider console:
+
+```bash
+cd apps/provider-console
 pnpm dev
 ```
 
-Targeted startup:
+4. Open `http://localhost:3001` → click **Register as Provider** → complete the 4-step onboarding.
+
+---
+
+## Smart Contracts
+
+Contracts are in `contracts/` (Hardhat + Solidity).
 
 ```bash
-pnpm --filter @comnetish/api dev
-pnpm --filter @comnetish/console dev
-pnpm --filter @comnetish/provider-console dev
-pnpm --filter @comnetish/website dev
-```
-
-### 6) Environment variables guide
-
-All baseline variables are documented in `.env.example`. Key groups:
-
-- **Global**: `NODE_ENV`, `COMNETISH_NETWORK`
-- **Console apps**: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_CHAIN_RPC_URL`, `NEXT_PUBLIC_CHAIN_ID`, `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID`
-- **Website**: `PUBLIC_SITE_URL`, `PUBLIC_CONSOLE_URL`, `PUBLIC_PROVIDER_CONSOLE_URL`
-- **API**: `API_PORT`, `API_CORS_ORIGIN`, `DATABASE_URL`, `REDIS_URL`
-- **AI agent**: `OPENAI_API_KEY`, `OPENAI_MODEL`
-- **Contracts**: `PRIVATE_KEY`, `ETH_RPC_URL`, `SEPOLIA_RPC_URL`
-
-> Recommendation: never commit populated secrets; keep local `.env` untracked.
-
-## 🖧 Multi-Laptop Provider Network Setup
-
-Use this when demoing a decentralized fleet across multiple physical machines.
-
-### Topology
-
-- **Laptop A**: chain + API + tenant console
-- **Laptop B/C/...**: provider stack (k3s + provider daemon)
-
-### Steps
-
-1. On Laptop A, run chain setup and expose reachable RPC (`26657`) and API (`3001`) on LAN.
-2. On each provider laptop, run provider setup script.
-3. Update each provider `config.yaml` to point `chain.node` to Laptop A IP:
-
-```yaml
-chain:
-	id: comnetish-1
-	node: http://192.168.1.10:26657
-```
-
-4. Start provider daemon stack on each provider laptop:
-
-```bash
-docker compose up -d
-```
-
-5. Verify heartbeat from each provider:
-
-```bash
-curl http://localhost:8080/health
-```
-
-6. Open provider map in console and confirm all nodes appear.
-
-## 🔐 Smart Contract Deployment Guide
-
-Contracts package: `contracts/` (Hardhat + Solidity)
-
-### Local deployment
-
-```bash
-pnpm --filter @comnetish/contracts dev
+# Build and test
 pnpm --filter @comnetish/contracts build
 pnpm --filter @comnetish/contracts test
+
+# Deploy locally
 pnpm --filter @comnetish/contracts run deploy
-pnpm --filter @comnetish/contracts run seed
-```
 
-Generated artifacts:
-
-- ABI exports: `contracts/exports/abi/*`
-- Address exports: `contracts/exports/addresses/hardhat.json`
-
-### Sepolia deployment
-
-Set env values:
-
-```bash
+# Deploy to Sepolia
 export SEPOLIA_RPC_URL="https://sepolia.infura.io/v3/<key>"
 export PRIVATE_KEY="0x..."
+pnpm --filter @comnetish/contracts run deploy:sepolia
 ```
 
-Deploy + seed:
+ABI and address exports are written to `contracts/exports/`.
+
+---
+
+## Blockchain / Chain Setup (Optional)
+
+The `scripts/` directory contains helper scripts to run a local Akash-based chain fork:
 
 ```bash
-pnpm --filter @comnetish/contracts run deploy:sepolia
-pnpm --filter @comnetish/contracts run seed:sepolia
+# Clone and build the comnetishd binary, start a local testnet
+chmod +x scripts/setup-chain-fork.sh
+./scripts/setup-chain-fork.sh
+
+# Set up a local provider daemon with k3s
+chmod +x scripts/setup-provider-fork.sh
+./scripts/setup-provider-fork.sh
 ```
 
-## 🎤 Demo Setup Checklist (Hackathon Presenters)
+> **Note:** This requires Go 1.21+ and Docker. It is not required for running the console apps and API locally.
 
-- [ ] `pnpm install` completed with no lockfile drift
-- [ ] `.env` copied and required keys present
-- [ ] Chain script run successfully (`scripts/setup-chain-fork.sh`)
-- [ ] Provider script run successfully (`scripts/setup-provider-fork.sh`)
-- [ ] Provider health endpoint returns 200 (`:8080/health`)
-- [ ] API live (`http://localhost:3001/api/stats`)
-- [ ] Console live (`http://localhost:3000`) and wallet connect working
+---
+
+## Environment Variables
+
+All variables are documented in `.env.example`. Key groups:
+
+| Group     | Variables                                                                                   |
+| --------- | ------------------------------------------------------------------------------------------- |
+| API       | `API_PORT`, `API_HOST`, `API_CORS_ORIGIN`, `DATABASE_URL`                                   |
+| Consoles  | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_CHAIN_RPC_URL`, `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID` |
+| AI Agent  | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`                                                      |
+| Contracts | `PRIVATE_KEY`, `SEPOLIA_RPC_URL`                                                            |
+| Website   | `PUBLIC_SITE_URL`, `PUBLIC_CONSOLE_URL`                                                     |
+
+Never commit populated `.env` files. All `.env.*` files are gitignored by default.
+
+---
+
+## Tech Stack
+
+| Layer             | Technology                                                        |
+| ----------------- | ----------------------------------------------------------------- |
+| Monorepo          | Turborepo + pnpm workspaces                                       |
+| Tenant Console    | Next.js 14, React 18, Tailwind CSS, Framer Motion, TanStack Query |
+| Provider Console  | Next.js 14, React 18, RainbowKit, wagmi                           |
+| Marketing Website | Astro 4                                                           |
+| API               | Bun, Hono, Prisma, Zod, PostgreSQL                                |
+| AI Agent          | Bun + TypeScript                                                  |
+| Smart Contracts   | Hardhat, Solidity                                                 |
+| Chain Integration | Cosmos SDK patterns, `@comnetish/chain-client`                    |
+| Shared UI         | `@comnetish/ui` component library                                 |
+
+---
+
+## Demo Checklist
+
+- [ ] `pnpm install` completed
+- [ ] `.env` and `services/api/.env.local` configured
+- [ ] Database created and migrations run (`prisma migrate dev`)
+- [ ] Seed data present (`prisma db seed`)
+- [ ] API responding at `http://localhost:3000/api/stats`
+- [ ] Tenant console live at `http://localhost:3002`
+- [ ] Provider console live at `http://localhost:3001`
 - [ ] At least one deployment created and visible in dashboard
-- [ ] Contracts deployed and exports generated in `contracts/exports`
-- [ ] Backup demo recording ready in case of network instability
+- [ ] Provider registered and visible in map
 
-## 🧪 Tech Stack
+---
 
-| Layer                  | Technology                                                    |
-| ---------------------- | ------------------------------------------------------------- |
-| Monorepo orchestration | Turborepo + pnpm workspaces                                   |
-| Tenant Console         | Next.js 14, React 18, Tailwind, Framer Motion, TanStack Query |
-| Provider Console       | Next.js 14, React 18, RainbowKit, wagmi                       |
-| Marketing Website      | Astro 4                                                       |
-| API Services           | Bun, Hono, Prisma, Zod                                        |
-| AI Agent               | Bun + TypeScript                                              |
-| Smart Contracts        | Hardhat, Solidity                                             |
-| Chain Integration      | Cosmos SDK patterns + custom `@comnetish/chain-client`        |
-| Shared UI              | `@comnetish/ui` component package                             |
-| Data Layer             | PostgreSQL, Redis                                             |
-| Container Runtime      | Docker, k3s/Kubernetes                                        |
-
-## 🤝 Contributing
-
-We welcome serious contributors and collaborators.
+## Contributing
 
 1. Fork and create a feature branch.
-2. Keep PR scope focused and production-quality.
-3. Run checks before opening PR:
+2. Keep PRs focused — one concern per PR.
+3. Run checks before opening a PR:
 
 ```bash
 pnpm typecheck
@@ -267,11 +283,10 @@ pnpm test
 pnpm build
 ```
 
-4. Include clear reproduction notes and screenshots for UI changes.
-5. Prefer incremental PRs over large unreviewable drops.
+4. Include screenshots for UI changes.
 
-## 📄 License
+---
 
-Comnetish is licensed under the **Apache License 2.0**.
+## License
 
-See: https://www.apache.org/licenses/LICENSE-2.0
+Apache License 2.0 — see [LICENSE](./LICENSE) or https://www.apache.org/licenses/LICENSE-2.0
