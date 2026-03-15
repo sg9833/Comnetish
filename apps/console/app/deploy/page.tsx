@@ -197,14 +197,34 @@ function generateSdlLocally(prompt: string): string {
 }
 
 function formatRegionFlag(region: string) {
-  if (region.startsWith('US')) {
+  const normalized = region.trim().toLowerCase();
+  if (normalized.startsWith('us') || normalized === 'us-east-1' || normalized === 'us-west-2') {
     return '🇺🇸';
   }
-  if (region.startsWith('EU')) {
+  if (normalized.startsWith('eu') || normalized === 'eu-west-1' || normalized === 'eu-central-1') {
     return '🇪🇺';
   }
-  if (region.startsWith('Asia')) {
+  if (
+    normalized.startsWith('asia') ||
+    normalized === 'ap-south-1' ||
+    normalized === 'ap-southeast-1' ||
+    normalized === 'ap-northeast-1'
+  ) {
     return '🌏';
+  }
+  if (
+    normalized === 'chennai' ||
+    normalized === 'bombay' ||
+    normalized === 'mumbai' ||
+    normalized === 'delhi' ||
+    normalized === 'kolkata' ||
+    normalized === 'bengaluru' ||
+    normalized === 'bangalore' ||
+    normalized === 'hyderabad' ||
+    normalized === 'visakhapatnam' ||
+    normalized === 'vizag'
+  ) {
+    return '🇮🇳';
   }
   return '🌐';
 }

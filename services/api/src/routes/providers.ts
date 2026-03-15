@@ -50,6 +50,36 @@ function normalizeProviderAddress(address?: string | null) {
   return isAddress(address) ? address.toLowerCase() : address;
 }
 
+const regionAliasMap: Record<string, string> = {
+  chennai: 'Chennai',
+  bombay: 'Mumbai',
+  mumbai: 'Mumbai',
+  delhi: 'Delhi',
+  kolkata: 'Kolkata',
+  bengaluru: 'Bengaluru',
+  bangalore: 'Bengaluru',
+  hyderabad: 'Hyderabad',
+  visakhapatnam: 'Visakhapatnam',
+  vizag: 'Visakhapatnam',
+  'us-east-1': 'US-East',
+  'us-west-2': 'US-West',
+  'eu-west-1': 'EU-West',
+  'eu-central-1': 'EU-Central',
+  'ap-south-1': 'Asia-Delhi',
+  'ap-southeast-1': 'Asia-Singapore',
+  'ap-northeast-1': 'Asia-Tokyo'
+};
+
+function normalizeProviderRegion(region: string) {
+  const trimmed = region.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  const alias = regionAliasMap[trimmed.toLowerCase()];
+  return alias ?? trimmed;
+}
+
 async function resolveProviderFromUnifiedSession(c: Context) {
   const current = await resolveCurrentSession(c);
   if (!current) {
@@ -139,11 +169,12 @@ async function resolveProvider(c: Context) {
 providers.post('/', zValidator('json', createProviderSchema), async (c) => {
   const payload = c.req.valid('json');
   const address = normalizeProviderAddress(payload.address) ?? payload.address;
+  const region = normalizeProviderRegion(payload.region);
 
   const provider = await prisma.provider.upsert({
     where: { address },
     update: {
-      region: payload.region,
+      region,
       cpu: payload.cpu,
       memory: payload.memory,
       storage: payload.storage,
@@ -153,7 +184,7 @@ providers.post('/', zValidator('json', createProviderSchema), async (c) => {
     },
     create: {
       address,
-      region: payload.region,
+      region,
       cpu: payload.cpu,
       memory: payload.memory,
       storage: payload.storage,
@@ -231,9 +262,10 @@ providers.get(
   ),
   async (c) => {
     const { region, status } = c.req.valid('query');
+    const normalizedRegion = region ? normalizeProviderRegion(region) : undefined;
     const items = await prisma.provider.findMany({
       where: {
-        ...(region ? { region } : {}),
+        ...(normalizedRegion ? { region: normalizedRegion } : {}),
         ...(status ? { status } : {})
       },
       orderBy: { lastSeen: 'desc' }
@@ -279,9 +311,14 @@ providers.patch('/me', zValidator('json', updateProviderSchema), async (c) => {
     throw new HttpError(401, 'Provider session required to update settings');
   }
   const body = c.req.valid('json');
+  const updatePayload = {
+    ...body,
+    ...(body.region ? { region: normalizeProviderRegion(body.region) } : {}),
+    lastSeen: new Date()
+  };
   const updated = await prisma.provider.update({
     where: { id: resolved.provider.id },
-    data: { ...body, lastSeen: new Date() }
+    data: updatePayload
   });
   return c.json({ data: updated });
 });

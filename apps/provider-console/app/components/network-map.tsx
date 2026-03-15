@@ -10,6 +10,13 @@ interface Region {
 }
 
 const REGIONS: Region[] = [
+  { id: 'Chennai', label: 'Chennai', x: 71, y: 58 },
+  { id: 'Mumbai', label: 'Mumbai', x: 64, y: 50 },
+  { id: 'Delhi', label: 'Delhi', x: 63, y: 42 },
+  { id: 'Kolkata', label: 'Kolkata', x: 73, y: 47 },
+  { id: 'Bengaluru', label: 'Bengaluru', x: 69, y: 56 },
+  { id: 'Hyderabad', label: 'Hyderabad', x: 68, y: 52 },
+  { id: 'Visakhapatnam', label: 'Vizag', x: 74, y: 51 },
   { id: 'us-east-1', label: 'US East', x: 22, y: 42 },
   { id: 'us-west-2', label: 'US West', x: 11, y: 37 },
   { id: 'eu-west-1', label: 'EU West', x: 47, y: 30 },
@@ -21,6 +28,15 @@ const REGIONS: Region[] = [
 ];
 
 const CONNECTIONS: [string, string][] = [
+  ['Delhi', 'Mumbai'],
+  ['Mumbai', 'Bengaluru'],
+  ['Bengaluru', 'Chennai'],
+  ['Hyderabad', 'Visakhapatnam'],
+  ['Kolkata', 'Delhi'],
+  ['Delhi', 'Hyderabad'],
+  ['Mumbai', 'Kolkata'],
+  ['Chennai', 'ap-southeast-1'],
+  ['Delhi', 'eu-west-1'],
   ['us-east-1', 'eu-west-1'],
   ['us-east-1', 'us-west-2'],
   ['eu-west-1', 'eu-central-1'],
@@ -45,6 +61,32 @@ function quadBezierPoint(
   ];
 }
 
+const regionAliasMap: Record<string, string> = {
+  chennai: 'Chennai',
+  bombay: 'Mumbai',
+  mumbai: 'Mumbai',
+  delhi: 'Delhi',
+  kolkata: 'Kolkata',
+  bengaluru: 'Bengaluru',
+  bangalore: 'Bengaluru',
+  hyderabad: 'Hyderabad',
+  visakhapatnam: 'Visakhapatnam',
+  vizag: 'Visakhapatnam'
+};
+
+function normalizeRegionKey(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  return regionAliasMap[trimmed.toLowerCase()] ?? trimmed;
+}
+
 interface NetworkMapProps {
   activeRegion?: string;
   className?: string;
@@ -56,7 +98,7 @@ export function NetworkMap({ activeRegion, className = '' }: NetworkMapProps) {
   const activeRegionRef = useRef<string | undefined>(activeRegion);
 
   useEffect(() => {
-    activeRegionRef.current = activeRegion;
+    activeRegionRef.current = normalizeRegionKey(activeRegion);
   }, [activeRegion]);
 
   useEffect(() => {
@@ -88,7 +130,7 @@ export function NetworkMap({ activeRegion, className = '' }: NetworkMapProps) {
       { t: ((i * 0.37) + 0.5) % 1, speed: 0.0007 + i * 0.00008 },
     ]);
 
-    const regionMap = new Map<string, Region>(REGIONS.map(r => [r.id, r]));
+    const regionMap = new Map<string, Region>(REGIONS.map((region) => [normalizeRegionKey(region.id) ?? region.id, region]));
 
     function draw() {
       if (!canvas || !ctx) return;
@@ -121,8 +163,8 @@ export function NetworkMap({ activeRegion, className = '' }: NetworkMapProps) {
 
       // — Draw connection lines + animated packets —
       CONNECTIONS.forEach(([fromId, toId], ci) => {
-        const from = regionMap.get(fromId);
-        const to = regionMap.get(toId);
+        const from = regionMap.get(normalizeRegionKey(fromId) ?? fromId);
+        const to = regionMap.get(normalizeRegionKey(toId) ?? toId);
         if (!from || !to) return;
 
         const fx = (from.x / 100) * W;
@@ -171,7 +213,7 @@ export function NetworkMap({ activeRegion, className = '' }: NetworkMapProps) {
       REGIONS.forEach(region => {
         const rx = (region.x / 100) * W;
         const ry = (region.y / 100) * H;
-        const isActive = activeRegionRef.current === region.id;
+        const isActive = activeRegionRef.current === (normalizeRegionKey(region.id) ?? region.id);
         const phaseOffset = region.x * 0.1 + region.y * 0.07;
 
         // Outer pulse ring (animated)
@@ -230,8 +272,7 @@ export function NetworkMap({ activeRegion, className = '' }: NetworkMapProps) {
   return (
     <canvas
       ref={canvasRef}
-      className={className}
-      style={{ display: 'block', width: '100%', height: '100%' }}
+      className={`${className} block h-full w-full`}
       aria-label="Provider network map"
     />
   );

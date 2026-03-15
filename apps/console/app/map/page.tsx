@@ -76,8 +76,49 @@ const REGION_GEO: Record<string, { lat: number; lng: number; flag: string; label
   'EU-Central': { lat: 50.1109, lng: 8.6821, flag: '🇪🇺', label: 'EU Central' },
   'EU-West': { lat: 53.3498, lng: -6.2603, flag: '🇪🇺', label: 'EU West' },
   'Asia-Singapore': { lat: 1.3521, lng: 103.8198, flag: '🇸🇬', label: 'Singapore' },
-  'Asia-Tokyo': { lat: 35.6762, lng: 139.6503, flag: '🇯🇵', label: 'Tokyo' }
+  'Asia-Tokyo': { lat: 35.6762, lng: 139.6503, flag: '🇯🇵', label: 'Tokyo' },
+  Chennai: { lat: 13.0827, lng: 80.2707, flag: '🇮🇳', label: 'Chennai' },
+  Mumbai: { lat: 19.076, lng: 72.8777, flag: '🇮🇳', label: 'Mumbai' },
+  Delhi: { lat: 28.6139, lng: 77.209, flag: '🇮🇳', label: 'Delhi' },
+  Kolkata: { lat: 22.5726, lng: 88.3639, flag: '🇮🇳', label: 'Kolkata' },
+  Bengaluru: { lat: 12.9716, lng: 77.5946, flag: '🇮🇳', label: 'Bengaluru' },
+  Hyderabad: { lat: 17.385, lng: 78.4867, flag: '🇮🇳', label: 'Hyderabad' },
+  Visakhapatnam: { lat: 17.6868, lng: 83.2185, flag: '🇮🇳', label: 'Visakhapatnam' }
 };
+
+const REGION_ALIAS_MAP: Record<string, string> = {
+  chennai: 'Chennai',
+  bombay: 'Mumbai',
+  mumbai: 'Mumbai',
+  delhi: 'Delhi',
+  kolkata: 'Kolkata',
+  bengaluru: 'Bengaluru',
+  bangalore: 'Bengaluru',
+  hyderabad: 'Hyderabad',
+  visakhapatnam: 'Visakhapatnam',
+  vizag: 'Visakhapatnam',
+  'us-east-1': 'US-East',
+  'us-west-2': 'US-West',
+  'eu-west-1': 'EU-West',
+  'eu-central-1': 'EU-Central',
+  'ap-southeast-1': 'Asia-Singapore',
+  'ap-northeast-1': 'Asia-Tokyo',
+  'ap-south-1': 'Delhi'
+};
+
+function normalizeRegionName(region: string) {
+  const trimmed = region.trim();
+  if (!trimmed) {
+    return region;
+  }
+
+  return REGION_ALIAS_MAP[trimmed.toLowerCase()] ?? trimmed;
+}
+
+function resolveRegionGeo(region: string) {
+  const normalizedRegion = normalizeRegionName(region);
+  return REGION_GEO[normalizedRegion] ?? REGION_GEO[region] ?? hashToCoord(region);
+}
 
 function hashToCoord(input: string) {
   const hash = hashInt(input);
@@ -191,12 +232,14 @@ function ProviderMapPageContent() {
 
   const providersGeo = useMemo<ProviderGeo[]>(() => {
     return providers.map((provider) => {
-      const mapped = REGION_GEO[provider.region] ?? hashToCoord(provider.region);
+      const normalizedRegion = normalizeRegionName(provider.region);
+      const mapped = resolveRegionGeo(provider.region);
       const providerLeases = leases.filter((item) => item.providerId === provider.id && item.status === 'ACTIVE').length;
       const variability = (hashInt(provider.id) % 100) / 100;
       const uptime = provider.status === 'ACTIVE' ? 98.0 + variability * 1.6 : 92.0 + variability * 2.8;
       return {
         ...provider,
+        region: normalizedRegion,
         lat: mapped.lat,
         lng: mapped.lng,
         name: `Provider ${provider.address.slice(0, 8)}`,
@@ -417,7 +460,7 @@ function ProviderMapPageContent() {
 
           <div className="max-h-[52vh] space-y-3 overflow-auto pr-1">
             {providersGeo.map((provider) => {
-              const regionInfo = REGION_GEO[provider.region];
+              const regionInfo = REGION_GEO[normalizeRegionName(provider.region)] ?? REGION_GEO[provider.region];
               return (
                 <motion.button
                   key={provider.id}

@@ -39,6 +39,13 @@ interface ProviderSession {
   emailVerified: boolean;
 }
 
+interface AuthMePayload {
+  user: {
+    wallets?: Array<{ address: string }>;
+  };
+  session: ProviderSession;
+}
+
 interface ProviderProfile {
   id: string;
   address: string;
@@ -73,6 +80,7 @@ export default function ProviderConsolePage() {
   const [authAddress, setAuthAddress] = useState<string | null>(null);
   const [authenticating, setAuthenticating] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [sessionBootstrapDone, setSessionBootstrapDone] = useState(false);
   const [pricePerCpu, setPricePerCpu] = useState(1);
   const [providerStatusSetting, setProviderStatusSetting] = useState<'ACTIVE' | 'MAINTENANCE'>('ACTIVE');
   const [regionSetting, setRegionSetting] = useState('us-east-1');
@@ -95,12 +103,96 @@ export default function ProviderConsolePage() {
   }, [isConnected, needsOnboarding, router]);
 
   useEffect(() => {
-    if (!isConnected || !address) {
+    let cancelled = false;
+
+    async function bootstrapSession() {
+      if (!isConnected || !address) {
+        setAuthSession(null);
+        setAuthAddress(null);
+        setAuthError(null);
+        setNeedsOnboarding(false);
+        setAuthenticating(false);
+        setSessionBootstrapDone(true);
+        return;
+      }
+
+      setSessionBootstrapDone(false);
       setAuthSession(null);
       setAuthAddress(null);
       setAuthError(null);
       setNeedsOnboarding(false);
-      setAuthenticating(false);
+      const normalizedAddress = address.toLowerCase();
+
+      const fetchAuthMe = async () => {
+        return fetch(`${API_BASE}/api/auth/me`, {
+          credentials: 'include'
+        });
+      };
+
+      try {
+        let meResponse = await fetchAuthMe();
+
+        if (meResponse.status === 401) {
+          const refreshResponse = await fetch(`${API_BASE}/api/auth/refresh`, {
+            method: 'POST',
+            credentials: 'include'
+          });
+
+          if (refreshResponse.ok) {
+            meResponse = await fetchAuthMe();
+          }
+        }
+
+        if (!meResponse.ok) {
+          return;
+        }
+
+        const mePayload = (await meResponse.json()) as { data: AuthMePayload };
+        const walletAddresses = (mePayload.data.user.wallets ?? []).map((wallet) =>
+          wallet.address.toLowerCase()
+        );
+
+        if (!walletAddresses.includes(normalizedAddress)) {
+          return;
+        }
+
+        const providerCheck = await fetch(`${API_BASE}/api/providers/me`, {
+          credentials: 'include'
+        });
+
+        if (providerCheck.ok) {
+          if (!cancelled) {
+            setAuthSession(mePayload.data.session);
+            setAuthAddress(normalizedAddress);
+            setAuthError(null);
+            setNeedsOnboarding(false);
+          }
+          return;
+        }
+
+        if (providerCheck.status === 404 && !cancelled) {
+          setNeedsOnboarding(true);
+        }
+      } finally {
+        if (!cancelled) {
+          setSessionBootstrapDone(true);
+        }
+      }
+    }
+
+    void bootstrapSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [address, isConnected]);
+
+  useEffect(() => {
+    if (!sessionBootstrapDone) {
+      return;
+    }
+
+    if (!isConnected || !address) {
       return;
     }
 
@@ -194,10 +286,10 @@ export default function ProviderConsolePage() {
     return () => {
       cancelled = true;
     };
-  }, [address, authAddress, authSession, isConnected, signMessageAsync]);
+  }, [address, authAddress, authSession, isConnected, sessionBootstrapDone, signMessageAsync]);
 
   const isAuthenticated = Boolean(authSession?.id);
-  const queriesEnabled = !isConnected || isAuthenticated;
+  const queriesEnabled = isAuthenticated;
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['provider-stats', authAddress ?? address ?? 'demo'],
@@ -261,7 +353,7 @@ export default function ProviderConsolePage() {
     }
   }
 
-  const isLoading = statsLoading || leasesLoading || authenticating;
+  const isLoading = statsLoading || leasesLoading || authenticating || !sessionBootstrapDone;
 
   const activeLeasesData = leases?.filter((l) => l.status === 'ACTIVE') ?? [];
 
