@@ -5,6 +5,7 @@ import { zValidator } from '@hono/zod-validator';
 import { isAddress, verifyMessage } from 'viem';
 import { prisma } from '../lib/db';
 import { HttpError } from '../lib/http-error';
+import { resolveCurrentSession } from '../lib/auth/session';
 import {
   clearProviderChallenge,
   createProviderChallenge,
@@ -28,7 +29,8 @@ const createProviderSchema = z.object({
 
 const updateProviderSchema = z.object({
   pricePerCpu: z.number().positive().optional(),
-  status: z.enum(['ACTIVE', 'INACTIVE', 'MAINTENANCE']).optional()
+  status: z.enum(['ACTIVE', 'INACTIVE', 'MAINTENANCE']).optional(),
+  region: z.string().min(2).max(64).optional()
 });
 
 const providerChallengeSchema = z.object({
@@ -48,7 +50,48 @@ function normalizeProviderAddress(address?: string | null) {
   return isAddress(address) ? address.toLowerCase() : address;
 }
 
-async function resolveProviderFromSession(c: Context) {
+async function resolveProviderFromUnifiedSession(c: Context) {
+  const current = await resolveCurrentSession(c);
+  if (!current) {
+    return { provider: null, hasSession: false } as const;
+  }
+
+  const user = current.user;
+
+  let provider = null as Awaited<ReturnType<typeof prisma.provider.findUnique>>;
+
+  if (user.providerProfile?.providerId) {
+    provider = await prisma.provider.findUnique({
+      where: { id: user.providerProfile.providerId }
+    });
+  }
+
+  if (!provider) {
+    provider = await prisma.provider.findFirst({
+      where: { userId: user.id }
+    });
+  }
+
+  if (!provider) {
+    const preferredWallet =
+      user.wallets.find((wallet) => wallet.isPrimary)?.address ?? user.wallets[0]?.address;
+
+    if (preferredWallet) {
+      provider = await prisma.provider.findUnique({ where: { address: preferredWallet } });
+    }
+  }
+
+  if (provider && !provider.userId) {
+    provider = await prisma.provider.update({
+      where: { id: provider.id },
+      data: { userId: user.id }
+    });
+  }
+
+  return { provider, hasSession: true } as const;
+}
+
+async function resolveProviderFromLegacySession(c: Context) {
   const token = readBearerToken(c);
   if (!token) {
     return null;
@@ -67,10 +110,19 @@ async function resolveProviderFromSession(c: Context) {
   return provider;
 }
 
+async function resolveProviderFromSession(c: Context) {
+  const legacyProvider = await resolveProviderFromLegacySession(c);
+  if (legacyProvider) {
+    return { provider: legacyProvider, hasSession: true } as const;
+  }
+
+  return resolveProviderFromUnifiedSession(c);
+}
+
 async function resolveProvider(c: Context) {
   const sessionProvider = await resolveProviderFromSession(c);
-  if (sessionProvider) {
-    return sessionProvider;
+  if (sessionProvider.provider) {
+    return sessionProvider.provider;
   }
 
   const address = normalizeProviderAddress(c.req.query('address'));
@@ -208,21 +260,27 @@ providers.get('/stats', async (c) => {
 });
 
 providers.get('/me', async (c) => {
-  const provider = await resolveProviderFromSession(c);
-  if (!provider) {
+  const resolved = await resolveProviderFromSession(c);
+  if (!resolved.provider) {
+    if (resolved.hasSession) {
+      throw new HttpError(404, 'Provider not registered for this account');
+    }
     throw new HttpError(401, 'Provider session required');
   }
-  return c.json({ data: provider });
+  return c.json({ data: resolved.provider });
 });
 
 providers.patch('/me', zValidator('json', updateProviderSchema), async (c) => {
-  const provider = await resolveProviderFromSession(c);
-  if (!provider) {
+  const resolved = await resolveProviderFromSession(c);
+  if (!resolved.provider) {
+    if (resolved.hasSession) {
+      throw new HttpError(404, 'Provider not registered for this account');
+    }
     throw new HttpError(401, 'Provider session required to update settings');
   }
   const body = c.req.valid('json');
   const updated = await prisma.provider.update({
-    where: { id: provider.id },
+    where: { id: resolved.provider.id },
     data: { ...body, lastSeen: new Date() }
   });
   return c.json({ data: updated });

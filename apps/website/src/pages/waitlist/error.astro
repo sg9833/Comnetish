@@ -1,0 +1,47 @@
+---
+import MarketingLayout from '../../layouts/MarketingLayout.astro';
+---
+
+<MarketingLayout
+  title="Waitlist Error — Comnetish"
+  description="We could not submit your waitlist request right now."
+>
+  <main>
+    <section class="section">
+      <div class="wrap card note">
+        <p class="eyebrow">Waitlist</p>
+        <h1>Submission failed.</h1>
+        <p>We could not process your waitlist request right now. Please go back and try again in a moment.</p>
+        <a href="/" class="btn btnPrimary">Return to homepage</a>
+      </div>
+    </section>
+  </main>
+
+  <style>
+    .note {
+      padding: 28px;
+      max-width: 720px;
+    }
+
+    .eyebrow {
+      margin: 0;
+      color: var(--danger);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+      font-size: 0.82rem;
+    }
+
+    h1 {
+      margin: 12px 0;
+      font-family: Syne, Inter, sans-serif;
+      font-size: clamp(2rem, 5vw, 3rem);
+    }
+
+    p {
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 60ch;
+    }
+  </style>
+</MarketingLayout>

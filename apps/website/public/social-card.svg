@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Comnetish social card</title>
+  <desc id="desc">Comnetish decentralized cloud marketing image.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#060a12"/>
+      <stop offset="100%" stop-color="#101f34"/>
+    </linearGradient>
+    <radialGradient id="mint" cx="0.15" cy="0.1" r="0.6">
+      <stop offset="0%" stop-color="#00ffc2" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#00ffc2" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#mint)"/>
+  <circle cx="170" cy="120" r="18" fill="#00ffc2"/>
+  <text x="150" y="260" fill="#e7eef8" font-family="Inter, Arial, sans-serif" font-size="28" letter-spacing="4">DECENTRALIZED CLOUD, PRODUCTION-READY UX</text>
+  <text x="150" y="360" fill="#ffffff" font-family="Syne, Inter, Arial, sans-serif" font-size="74" font-weight="700">Decentralized Cloud.</text>
+  <text x="150" y="438" fill="#ffffff" font-family="Syne, Inter, Arial, sans-serif" font-size="74" font-weight="700">Finally Usable.</text>
+  <text x="150" y="520" fill="#9bb0c7" font-family="Inter, Arial, sans-serif" font-size="30">Deploy workloads, compare provider bids, and scale with transparent economics.</text>
+  <rect x="850" y="170" width="200" height="200" rx="28" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.14)"/>
+  <path d="M915 220h55c24.853 0 45 20.147 45 45v10c0 24.853-20.147 45-45 45h-55" fill="none" stroke="#8fd3ff" stroke-linecap="round" stroke-width="18"/>
+  <circle cx="905" cy="270" r="28" fill="#00ffc2"/>
+</svg>

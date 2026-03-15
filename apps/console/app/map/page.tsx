@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Area,
@@ -56,6 +57,8 @@ type ArcDatum = {
   startLng: number;
   endLat: number;
   endLng: number;
+  kind: 'lease' | 'backbone';
+  dashInitialGap: number;
 };
 
 type RingDatum = ProviderGeo & {
@@ -227,7 +230,7 @@ function ProviderMapPageContent() {
 
   const arcs = useMemo<ArcDatum[]>(() => {
     const deploymentMap = Object.fromEntries(deployments.map((item) => [item.id, item]));
-    return leases
+    const leaseArcs = leases
       .filter((item) => item.status === 'ACTIVE')
       .map((lease) => {
         const provider = providerById[lease.providerId];
@@ -240,11 +243,59 @@ function ProviderMapPageContent() {
           startLat: tenantCoord.lat,
           startLng: tenantCoord.lng,
           endLat: provider.lat,
-          endLng: provider.lng
+          endLng: provider.lng,
+          kind: 'lease' as const,
+          dashInitialGap: (hashInt(lease.id) % 100) / 100
         };
       })
-      .filter((item): item is ArcDatum => Boolean(item));
-  }, [leases, deployments, providerById]);
+      .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+    const activeProviders = providersGeo
+      .filter((provider) => provider.status === 'ACTIVE')
+      .slice()
+      .sort((left, right) => left.lng - right.lng);
+
+    const backboneArcs: ArcDatum[] = [];
+
+    if (activeProviders.length >= 2) {
+      for (let index = 0; index < activeProviders.length; index += 1) {
+        const start = activeProviders[index];
+        const end = activeProviders[(index + 1) % activeProviders.length];
+
+        if (!start || !end || start.id === end.id) {
+          continue;
+        }
+
+        backboneArcs.push({
+          startLat: start.lat,
+          startLng: start.lng,
+          endLat: end.lat,
+          endLng: end.lng,
+          kind: 'backbone',
+          dashInitialGap: (index % 7) * 0.14
+        });
+      }
+
+      const hub = activeProviders[0];
+      for (let index = 2; index < activeProviders.length; index += 2) {
+        const provider = activeProviders[index];
+        if (!hub || !provider || hub.id === provider.id) {
+          continue;
+        }
+
+        backboneArcs.push({
+          startLat: hub.lat,
+          startLng: hub.lng,
+          endLat: provider.lat,
+          endLng: provider.lng,
+          kind: 'backbone',
+          dashInitialGap: ((index + 3) % 7) * 0.14
+        });
+      }
+    }
+
+    return [...backboneArcs, ...leaseArcs];
+  }, [leases, deployments, providerById, providersGeo]);
 
   const ringsData = useMemo<RingDatum[]>(
     () =>
@@ -325,12 +376,19 @@ function ProviderMapPageContent() {
               ringPropagationSpeed={(point: object) => (point as RingDatum).ringPropagationSpeed}
               ringRepeatPeriod={(point: object) => (point as RingDatum).ringRepeatPeriod}
               arcsData={arcs}
-              arcColor={() => '#7B61FF'}
-              arcDashLength={0.45}
-              arcDashGap={1}
-              arcDashAnimateTime={2500}
-              arcStroke={0.8}
-              arcAltitude={0.16}
+              arcColor={(arc: object) => {
+                const datum = arc as ArcDatum;
+                return datum.kind === 'lease'
+                  ? ['rgba(123,97,255,0.95)', 'rgba(123,97,255,0.15)']
+                  : ['rgba(0,255,194,0.75)', 'rgba(0,255,194,0.08)'];
+              }}
+              arcDashLength={(arc: object) => ((arc as ArcDatum).kind === 'lease' ? 0.42 : 0.28)}
+              arcDashGap={(arc: object) => ((arc as ArcDatum).kind === 'lease' ? 0.8 : 0.55)}
+              arcDashInitialGap={(arc: object) => (arc as ArcDatum).dashInitialGap}
+              arcDashAnimateTime={(arc: object) => ((arc as ArcDatum).kind === 'lease' ? 2200 : 1600)}
+              arcStroke={(arc: object) => ((arc as ArcDatum).kind === 'lease' ? 0.95 : 0.7)}
+              arcAltitude={(arc: object) => ((arc as ArcDatum).kind === 'lease' ? 0.16 : 0.1)}
+              arcsTransitionDuration={0}
               onGlobeReady={() => {
                 const controls = globeRef.current?.controls?.();
                 if (controls) {
@@ -497,5 +555,9 @@ function ProviderMapPageContent() {
 }
 
 export default function ProviderMapPage() {
-  return <ProviderMapPageContent />;
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-background" />}>
+      <ProviderMapPageContent />
+    </Suspense>
+  );
 }

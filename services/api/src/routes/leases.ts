@@ -3,6 +3,13 @@ import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { prisma } from '../lib/db';
 import { HttpError } from '../lib/http-error';
+import { requireCurrentSession } from '../lib/auth/session';
+import {
+  canAccessDeployment,
+  ensureRole,
+  isAdmin,
+  resolveProviderForUser
+} from '../lib/auth/authorization';
 
 const createLeaseSchema = z.object({
   deploymentId: z.string().min(1),
@@ -13,6 +20,9 @@ const createLeaseSchema = z.object({
 const leases = new Hono();
 
 leases.post('/', zValidator('json', createLeaseSchema), async (c) => {
+  const current = await requireCurrentSession(c);
+  ensureRole(current.user, ['TENANT']);
+
   const payload = c.req.valid('json');
 
   // Validate deployment, provider, and an open bid exist
@@ -30,6 +40,9 @@ leases.post('/', zValidator('json', createLeaseSchema), async (c) => {
 
   if (!deployment) {
     throw new HttpError(404, 'Deployment not found');
+  }
+  if (!canAccessDeployment(current.user, deployment)) {
+    throw new HttpError(403, 'You do not have permission to create a lease for this deployment');
   }
   if (deployment.status !== 'OPEN') {
     throw new HttpError(400, 'Deployment is not accepting lease creation');
@@ -106,12 +119,39 @@ leases.get(
     })
   ),
   async (c) => {
+    const current = await requireCurrentSession(c);
     const query = c.req.valid('query');
+
+    const provider = current.user.primaryRole === 'PROVIDER' ? await resolveProviderForUser(current.user) : null;
+
+    if (!isAdmin(current.user)) {
+      if (current.user.primaryRole === 'PROVIDER') {
+        if (!provider) {
+          throw new HttpError(404, 'Provider profile not found for authenticated account');
+        }
+
+        if (query.providerId && query.providerId !== provider.id) {
+          throw new HttpError(403, 'providerId does not match authenticated provider');
+        }
+      }
+
+      if (current.user.primaryRole === 'TENANT' && query.providerId) {
+        throw new HttpError(403, 'Tenants cannot filter leases by providerId');
+      }
+    }
 
     const items = await prisma.lease.findMany({
       where: {
         ...(query.deploymentId ? { deploymentId: query.deploymentId } : {}),
-        ...(query.providerId ? { providerId: query.providerId } : {}),
+        ...(isAdmin(current.user)
+          ? query.providerId
+            ? { providerId: query.providerId }
+            : {}
+          : current.user.primaryRole === 'PROVIDER'
+            ? provider
+              ? { providerId: provider.id }
+              : {}
+            : {}),
         ...(query.status ? { status: query.status } : {})
       },
       include: {
@@ -121,34 +161,93 @@ leases.get(
       orderBy: { startedAt: 'desc' }
     });
 
-    return c.json({ data: items });
+    if (isAdmin(current.user) || current.user.primaryRole === 'PROVIDER') {
+      return c.json({ data: items });
+    }
+
+    const filtered = items.filter((lease) => canAccessDeployment(current.user, lease.deployment));
+
+    return c.json({ data: filtered });
   }
 );
 
 leases.get('/:id/logs', async (c) => {
+  const current = await requireCurrentSession(c);
   const id = c.req.param('id');
-  const lease = await prisma.lease.findUnique({ where: { id } });
+  const lease = await prisma.lease.findUnique({
+    where: { id },
+    include: {
+      deployment: true
+    }
+  });
 
   if (!lease) {
     throw new HttpError(404, 'Lease not found');
   }
 
+  if (!isAdmin(current.user)) {
+    if (current.user.primaryRole === 'PROVIDER') {
+      const provider = await resolveProviderForUser(current.user);
+      if (!provider || provider.id !== lease.providerId) {
+        throw new HttpError(403, 'You do not have permission to view these lease logs');
+      }
+    } else if (!canAccessDeployment(current.user, lease.deployment)) {
+      throw new HttpError(403, 'You do not have permission to view these lease logs');
+    }
+  }
+
   const encoder = new TextEncoder();
   let tick = 0;
+  let closed = false;
+  let interval: ReturnType<typeof setInterval> | null = null;
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
-      const interval = setInterval(() => {
+      interval = setInterval(() => {
+        if (closed) {
+          if (interval) {
+            clearInterval(interval);
+            interval = null;
+          }
+          return;
+        }
+
         tick += 1;
-        controller.enqueue(
-          encoder.encode(`data: [${new Date().toISOString()}] lease=${id} status=${lease.status} tick=${tick}\\n\\n`)
-        );
+
+        try {
+          controller.enqueue(
+            encoder.encode(`data: [${new Date().toISOString()}] lease=${id} status=${lease.status} tick=${tick}\\n\\n`)
+          );
+        } catch {
+          closed = true;
+          if (interval) {
+            clearInterval(interval);
+            interval = null;
+          }
+          return;
+        }
 
         if (tick >= 20) {
-          clearInterval(interval);
-          controller.close();
+          closed = true;
+          if (interval) {
+            clearInterval(interval);
+            interval = null;
+          }
+
+          try {
+            controller.close();
+          } catch {
+            // stream controller may already be closed by client disconnect
+          }
         }
       }, 1000);
+    },
+    cancel() {
+      closed = true;
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
     }
   });
 

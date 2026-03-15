@@ -1,5 +1,23 @@
 ---
 import MarketingLayout from '../layouts/MarketingLayout.astro';
+
+const isDev = import.meta.env.DEV;
+const withPath = (base: string | undefined, path: string, fallback: string) => {
+  if (!base) {
+    return fallback;
+  }
+
+  try {
+    return new URL(path, base).toString();
+  } catch {
+    return fallback;
+  }
+};
+
+const consoleBase = import.meta.env.PUBLIC_CONSOLE_URL ?? (isDev ? 'http://localhost:3000' : undefined);
+const providerConsoleBase = import.meta.env.PUBLIC_PROVIDER_CONSOLE_URL ?? (isDev ? 'http://localhost:3002' : undefined);
+const deployUrl = withPath(consoleBase, '/deploy', '/');
+const providerOnboardUrl = withPath(providerConsoleBase, '/onboard', '/providers');
 ---
 
 <MarketingLayout
@@ -25,7 +43,7 @@ import MarketingLayout from '../layouts/MarketingLayout.astro';
             <li>Review provider bids and select a lease.</li>
             <li>Track logs, health, and settlement from dashboard.</li>
           </ol>
-          <a href="http://localhost:3000/deploy" class="btn btnPrimary">Open Deploy Console</a>
+          <a href={deployUrl} class="btn btnPrimary">Open Deploy Console</a>
         </article>
 
         <article class="card doc" data-reveal>
@@ -36,8 +54,61 @@ import MarketingLayout from '../layouts/MarketingLayout.astro';
             <li>Stake 1000 CNT and complete registration.</li>
             <li>Start daemon and verify heartbeat status.</li>
           </ol>
-          <a href="http://localhost:3002/onboard" class="btn btnGhost">Open Provider Onboarding</a>
+          <a href={providerOnboardUrl} class="btn btnGhost">Open Provider Onboarding</a>
         </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap details">
+        <article class="card detail" data-reveal>
+          <h2>Platform flow</h2>
+          <p>Comnetish turns deployment requests into a live provider marketplace:</p>
+          <ul>
+            <li>Tenants submit workload requirements from the console.</li>
+            <li>Providers bid based on available machine capacity and pricing.</li>
+            <li>The selected lease is settled on-chain and executed with container tooling.</li>
+          </ul>
+        </article>
+
+        <article class="card detail" data-reveal>
+          <h2>Provider checklist</h2>
+          <ul>
+            <li>Reliable outbound internet and a machine you can keep online.</li>
+            <li>Docker and k3s installed locally.</li>
+            <li>CNT stake available for registration.</li>
+            <li>Monitoring in place for daemon health, capacity, and earnings.</li>
+          </ul>
+        </article>
+
+        <article class="card detail" data-reveal>
+          <h2>Operational notes</h2>
+          <ul>
+            <li>API metrics power the website stats and provider dashboards.</li>
+            <li>Console and provider console are separate apps and can be deployed independently.</li>
+            <li>Production environments should set public site, API, and console URLs explicitly.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap faq card" data-reveal>
+        <h2>Common questions</h2>
+        <div class="faqGrid">
+          <div>
+            <h3>Is this only for crypto-native users?</h3>
+            <p>No. The product pitch is standard container deployment with transparent marketplace pricing, even though settlement and identity are anchored on-chain.</p>
+          </div>
+          <div>
+            <h3>How do providers compete?</h3>
+            <p>Providers compete on available capacity, uptime, and quoted lease price, which gives tenants more price discovery than a fixed hyperscaler catalog.</p>
+          </div>
+          <div>
+            <h3>What should I configure for production?</h3>
+            <p>At minimum: the public site URL, public API URL, tenant console URL, and provider console URL so the marketing site can link and submit correctly.</p>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -119,6 +190,43 @@ import MarketingLayout from '../layouts/MarketingLayout.astro';
       padding: 20px;
     }
 
+    .details {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .detail {
+      padding: 20px;
+    }
+
+    .detail h2,
+    .faq h2 {
+      margin-top: 0;
+      font-family: Syne, Inter, sans-serif;
+    }
+
+    .detail p,
+    .detail li,
+    .faq p {
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .faq {
+      padding: 20px;
+    }
+
+    .faqGrid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .faqGrid h3 {
+      margin-bottom: 8px;
+    }
+
     .commands h2 {
       margin-top: 0;
       font-family: Syne, Inter, sans-serif;
@@ -152,7 +260,9 @@ import MarketingLayout from '../layouts/MarketingLayout.astro';
 
     @media (max-width: 940px) {
       .grid,
-      .cmdGrid {
+      .cmdGrid,
+      .details,
+      .faqGrid {
         grid-template-columns: 1fr;
       }
     }

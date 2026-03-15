@@ -1,5 +1,21 @@
 ---
 import MarketingLayout from '../layouts/MarketingLayout.astro';
+
+const isDev = import.meta.env.DEV;
+const withPath = (base: string | undefined, path: string, fallback: string) => {
+  if (!base) {
+    return fallback;
+  }
+
+  try {
+    return new URL(path, base).toString();
+  } catch {
+    return fallback;
+  }
+};
+
+const providerConsoleBase = import.meta.env.PUBLIC_PROVIDER_CONSOLE_URL ?? (isDev ? 'http://localhost:3002' : undefined);
+const providerOnboardUrl = withPath(providerConsoleBase, '/onboard', '/docs');
 ---
 
 <MarketingLayout
@@ -14,7 +30,7 @@ import MarketingLayout from '../layouts/MarketingLayout.astro';
         <p>
           Offer CPU, memory, and storage capacity to tenants globally. Comnetish handles lease matching and settlement while you run the provider daemon.
         </p>
-        <a href="http://localhost:3002/onboard" class="btn btnPrimary">Start 5-minute onboarding</a>
+        <a href={providerOnboardUrl} class="btn btnPrimary">Start 5-minute onboarding</a>
       </div>
     </section>
 
@@ -44,19 +60,20 @@ import MarketingLayout from '../layouts/MarketingLayout.astro';
         <p class="sectionSub" data-reveal>Estimate monthly earnings based on your offered machine profile.</p>
         <div class="card calc" data-earnings-calculator data-reveal>
           <div>
-            <label>
+            <label for="provider-cpu">
               CPU Cores: <strong data-output="cpu">4</strong>
-              <input data-input="cpu" type="range" min="1" max="64" value="4" />
             </label>
-            <label>
+            <input id="provider-cpu" data-input="cpu" type="range" min="1" max="64" value="4" aria-label="CPU cores" />
+            <label for="provider-ram">
               RAM (GB): <strong data-output="ram">16</strong>
-              <input data-input="ram" type="range" min="1" max="256" value="16" />
             </label>
+            <input id="provider-ram" data-input="ram" type="range" min="1" max="256" value="16" aria-label="RAM in gigabytes" />
           </div>
-          <div class="result">
+          <div class="result" role="status" aria-live="polite" aria-atomic="true">
             <span>Projected monthly rewards</span>
             <strong data-output="cnt">0 CNT</strong>
             <small data-output="usd">$0.00</small>
+            <p class="srOnly" data-output="summary"></p>
           </div>
         </div>
       </div>

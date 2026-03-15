@@ -3,6 +3,14 @@ import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { prisma } from '../lib/db';
 import { HttpError } from '../lib/http-error';
+import { requireCurrentSession } from '../lib/auth/session';
+import {
+  canAccessDeployment,
+  ensureRole,
+  getWalletAddresses,
+  isAdmin,
+  userOwnsTenantAddress
+} from '../lib/auth/authorization';
 
 const createDeploymentSchema = z.object({
   tenantAddress: z.string().min(8),
@@ -17,10 +25,23 @@ const deploymentQuerySchema = z.object({
 const deployments = new Hono();
 
 deployments.post('/', zValidator('json', createDeploymentSchema), async (c) => {
+  const current = await requireCurrentSession(c);
+  ensureRole(current.user, ['TENANT']);
+
   const payload = c.req.valid('json');
+  const userWallets = getWalletAddresses(current.user);
+  const requestedTenantAddress = payload.tenantAddress.toLowerCase();
+
+  if (userWallets.length > 0 && !userOwnsTenantAddress(current.user, payload.tenantAddress) && !isAdmin(current.user)) {
+    throw new HttpError(403, 'tenantAddress must belong to an authenticated wallet linked to your account');
+  }
+
+  const effectiveTenantAddress = userWallets[0] ?? requestedTenantAddress;
+
   const deployment = await prisma.deployment.create({
     data: {
-      tenantAddress: payload.tenantAddress,
+      userId: current.user.id,
+      tenantAddress: effectiveTenantAddress,
       sdl: payload.sdl,
       status: 'OPEN'
     }
@@ -62,6 +83,7 @@ deployments.get('/:id', async (c) => {
 });
 
 deployments.post('/:id/close', async (c) => {
+  const current = await requireCurrentSession(c);
   const id = c.req.param('id');
   const existing = await prisma.deployment.findUnique({ where: { id } });
 
@@ -71,6 +93,10 @@ deployments.post('/:id/close', async (c) => {
 
   if (existing.status === 'CLOSED') {
     return c.json({ data: existing });
+  }
+
+  if (!canAccessDeployment(current.user, existing)) {
+    throw new HttpError(403, 'You do not have permission to close this deployment');
   }
 
   const updated = await prisma.deployment.update({

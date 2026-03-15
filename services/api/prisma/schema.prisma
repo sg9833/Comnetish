@@ -7,18 +7,155 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id                      String                   @id @default(cuid())
+  email                   String?                  @unique
+  emailVerifiedAt         DateTime?
+  passwordHash            String?
+  displayName             String?
+  avatarUrl               String?
+  primaryRole             UserRole                 @default(TENANT)
+  status                  UserStatus               @default(ACTIVE)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  wallets                 LinkedWallet[]
+  oauthAccounts           OAuthAccount[]
+  sessions                Session[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+  authChallenges          AuthChallenge[]
+  provider                Provider?
+  deployments             Deployment[]
+  providerProfile         ProviderProfile?
+  tenantProfile           TenantProfile?
+}
+
+model LinkedWallet {
+  id         String          @id @default(cuid())
+  userId     String
+  chainType  WalletChainType
+  address    String
+  isPrimary  Boolean         @default(false)
+  verifiedAt DateTime?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chainType, address])
+  @@index([userId])
+  @@index([userId, isPrimary])
+}
+
+model OAuthAccount {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          String
+  providerAccountId String
+  email             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id               String      @id @default(cuid())
+  userId           String
+  sessionType      SessionType @default(BROWSER)
+  refreshTokenHash String      @unique
+  userAgent        String?
+  ipAddress        String?
+  expiresAt        DateTime
+  lastRefreshedAt  DateTime    @default(now())
+  revokedAt        DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model AuthChallenge {
+  id            String            @id @default(cuid())
+  userId        String?
+  challengeType AuthChallengeType
+  chainType     WalletChainType?
+  walletAddress String?
+  nonce         String            @unique
+  message       String
+  expiresAt     DateTime
+  consumedAt    DateTime?
+  createdAt     DateTime          @default(now())
+  user          User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([walletAddress])
+  @@index([challengeType, expiresAt])
+}
+
+model ProviderProfile {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  providerId      String?   @unique
+  onboardingState String    @default("PENDING")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider        Provider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+}
+
+model TenantProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 model Provider {
-  id          String         @id @default(cuid())
-  address     String         @unique
+  id          String           @id @default(cuid())
+  userId      String?          @unique
+  address     String           @unique
   region      String
   cpu         Int
   memory      Int
   storage     Int
   pricePerCpu Float
-  status      ProviderStatus @default(ACTIVE)
-  lastSeen    DateTime       @default(now())
+  status      ProviderStatus   @default(ACTIVE)
+  lastSeen    DateTime         @default(now())
   bids        Bid[]
   leases      Lease[]
+  user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  profile     ProviderProfile?
 
   @@index([region])
   @@index([status])
@@ -26,6 +163,7 @@ model Provider {
 
 model Deployment {
   id            String           @id @default(cuid())
+  userId        String?
   tenantAddress String
   sdl           String
   status        DeploymentStatus @default(OPEN)
@@ -33,7 +171,9 @@ model Deployment {
   closedAt      DateTime?
   bids          Bid[]
   leases        Lease[]
+  user          User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  @@index([userId])
   @@index([tenantAddress])
   @@index([status])
 }
@@ -113,4 +253,34 @@ enum BidStatus {
   OPEN
   WON
   LOST
+}
+
+enum UserRole {
+  TENANT
+  PROVIDER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING_VERIFICATION
+  SUSPENDED
+  DELETED
+}
+
+enum WalletChainType {
+  EVM
+  COSMOS
+}
+
+enum SessionType {
+  BROWSER
+  API_TOKEN
+  PROVIDER_CONSOLE
+}
+
+enum AuthChallengeType {
+  WALLET_SIGN_IN
+  WALLET_LINK
+  PROVIDER_SIGN_IN
 }

@@ -1,0 +1,47 @@
+---
+import MarketingLayout from '../../layouts/MarketingLayout.astro';
+---
+
+<MarketingLayout
+  title="Waitlist Confirmed — Comnetish"
+  description="Your Comnetish waitlist registration has been received."
+>
+  <main>
+    <section class="section">
+      <div class="wrap card note">
+        <p class="eyebrow">Waitlist</p>
+        <h1>You are on the list.</h1>
+        <p>We received your request and will reach out with early access updates, migration notes, and rollout details.</p>
+        <a href="/" class="btn btnPrimary">Back to homepage</a>
+      </div>
+    </section>
+  </main>
+
+  <style>
+    .note {
+      padding: 28px;
+      max-width: 720px;
+    }
+
+    .eyebrow {
+      margin: 0;
+      color: var(--mint);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+      font-size: 0.82rem;
+    }
+
+    h1 {
+      margin: 12px 0;
+      font-family: Syne, Inter, sans-serif;
+      font-size: clamp(2rem, 5vw, 3rem);
+    }
+
+    p {
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 60ch;
+    }
+  </style>
+</MarketingLayout>

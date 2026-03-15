@@ -3,11 +3,11 @@
 ###############################################################################
 # Comnetish Services Startup Script
 #
-# This script starts all 4 services in separate terminal windows.
+# This script starts all 5 services in separate terminal windows.
 # Use this after initial setup to restart services.
 #
 # Usage:
-#   ./start-services.sh        # Start all 4 services in new terminals
+#   ./start-services.sh        # Start all 5 services in new terminals
 #
 # Requirements:
 #   - macOS + osascript for multi-terminal window mode
@@ -31,6 +31,7 @@ API_PORT=3001
 AI_AGENT_PORT=3010
 CONSOLE_PORT=3000
 PROVIDER_CONSOLE_PORT=3002
+WEBSITE_PORT=4321
 
 print_header() {
     echo -e "\n${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -71,7 +72,7 @@ is_port_in_use() {
 
 check_required_ports() {
     local blocked=0
-    local ports=("$API_PORT" "$AI_AGENT_PORT" "$CONSOLE_PORT" "$PROVIDER_CONSOLE_PORT")
+    local ports=("$API_PORT" "$AI_AGENT_PORT" "$CONSOLE_PORT" "$PROVIDER_CONSOLE_PORT" "$WEBSITE_PORT")
 
     for port in "${ports[@]}"; do
         if is_port_in_use "$port"; then
@@ -88,6 +89,7 @@ check_required_ports() {
         echo "  lsof -ti:$AI_AGENT_PORT | xargs kill -9"
         echo "  lsof -ti:$CONSOLE_PORT | xargs kill -9"
         echo "  lsof -ti:$PROVIDER_CONSOLE_PORT | xargs kill -9"
+        echo "  lsof -ti:$WEBSITE_PORT | xargs kill -9"
         echo ""
         exit 1
     fi
@@ -108,13 +110,15 @@ if [[ "$USE_MAC_TERMINAL" != true ]]; then
     start_background "ai-agent" "$PROJECT_ROOT/services/ai-agent" "AI_AGENT_PORT=$AI_AGENT_PORT pnpm start"
     start_background "console" "$PROJECT_ROOT/apps/console" "PORT=$CONSOLE_PORT pnpm dev"
     start_background "provider-console" "$PROJECT_ROOT/apps/provider-console" "PORT=$PROVIDER_CONSOLE_PORT pnpm dev"
+    start_background "website" "$PROJECT_ROOT/apps/website" "pnpm dev --host 0.0.0.0 --port $WEBSITE_PORT"
 
     print_header "Services Starting"
     echo ""
-    print_success "All 4 services started in background mode"
+    print_success "All 5 services started in background mode"
     echo ""
     echo "  Main Console:       http://localhost:$CONSOLE_PORT"
     echo "  Provider Console:   http://localhost:$PROVIDER_CONSOLE_PORT"
+    echo "  Website:            http://localhost:$WEBSITE_PORT"
     echo "  API Service:        http://localhost:$API_PORT/api/providers"
     echo "  AI Agent:           http://localhost:$AI_AGENT_PORT/health"
     echo ""
@@ -142,17 +146,23 @@ print_info "Terminal 4: Starting Provider Console..."
 osascript -e "tell app \"Terminal\" to do script \"cd '$PROJECT_ROOT/apps/provider-console' && echo '🚀 Starting Provider Console on http://localhost:$PROVIDER_CONSOLE_PORT' && PORT=$PROVIDER_CONSOLE_PORT pnpm dev\"" &
 sleep 1
 
+# Terminal 5: Website
+print_info "Terminal 5: Starting Website..."
+osascript -e "tell app \"Terminal\" to do script \"cd '$PROJECT_ROOT/apps/website' && echo '🚀 Starting Website on http://localhost:$WEBSITE_PORT' && pnpm dev --host 0.0.0.0 --port $WEBSITE_PORT\"" &
+sleep 1
+
 print_header "Services Starting"
 
 echo ""
-print_success "All 4 services are starting in new terminal windows!"
+print_success "All 5 services are starting in new terminal windows!"
 echo ""
 print_info "Wait for all services to show 'Ready' or 'listening' messages, then:"
 echo ""
 echo "  Main Console:       http://localhost:$CONSOLE_PORT"
 echo "  Provider Console:   http://localhost:$PROVIDER_CONSOLE_PORT"
+echo "  Website:            http://localhost:$WEBSITE_PORT"
 echo "  API Service:        http://localhost:$API_PORT/api/providers"
 echo "  AI Agent:           http://localhost:$AI_AGENT_PORT/health"
 echo ""
-print_info "Arrange the 4 terminal windows side-by-side to monitor all services."
+print_info "Arrange the 5 terminal windows side-by-side to monitor all services."
 echo ""

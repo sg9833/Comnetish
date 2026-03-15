@@ -319,13 +319,6 @@ function OnboardFlow() {
         throw new Error('Provider registration request failed');
       }
 
-      // Persist registered flag so dashboard doesn't redirect back to onboarding on reload
-      try {
-        localStorage.setItem(`comnetish_registered_${address.toLowerCase()}`, '1');
-      } catch {
-        // storage unavailable — ignore
-      }
-
       setRegistered(true);
       setStep(4);
     } finally {

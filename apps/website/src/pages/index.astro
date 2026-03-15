@@ -1,7 +1,34 @@
 ---
 import MarketingLayout from '../layouts/MarketingLayout.astro';
 
-const apiBase = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3001';
+const isDev = import.meta.env.DEV;
+const withPath = (base: string | undefined, path: string, fallback: string) => {
+  if (!base) {
+    return fallback;
+  }
+
+  try {
+    return new URL(path, base).toString();
+  } catch {
+    return fallback;
+  }
+};
+
+const apiBase = import.meta.env.PUBLIC_API_URL ?? (isDev ? 'http://localhost:3001' : '');
+const consoleBase = import.meta.env.PUBLIC_CONSOLE_URL ?? (isDev ? 'http://localhost:3000' : undefined);
+const siteBase = import.meta.env.PUBLIC_SITE_URL ?? Astro.site?.toString() ?? (isDev ? 'http://localhost:4321' : undefined);
+const deployUrl = withPath(consoleBase, '/deploy', '/docs');
+const waitlistFormAction = withPath(apiBase || undefined, '/api/waitlist/form', '/waitlist/error');
+const waitlistJsonAction = withPath(apiBase || undefined, '/api/waitlist', '');
+const waitlistSuccessUrl = withPath(siteBase, '/waitlist/thanks', '/waitlist/thanks');
+const waitlistErrorUrl = withPath(siteBase, '/waitlist/error', '/waitlist/error');
+const fallbackProviders = '0';
+const fallbackDeployments = '0';
+const fallbackVolume = '0 CNT';
+const defaultCalcCpu = 2;
+const defaultCalcRam = 4;
+const defaultCalcCnt = defaultCalcCpu * 230 + defaultCalcRam * 38;
+const defaultCalcUsd = defaultCalcCnt * 0.19;
 ---
 
 <MarketingLayout
@@ -12,14 +39,14 @@ const apiBase = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3001';
     <section class="hero section">
       <canvas id="heroParticles" width="1200" height="560" aria-hidden="true"></canvas>
       <div class="wrap heroInner">
-        <div data-reveal>
+        <div class="heroContent" data-reveal>
           <p class="eyebrow">Decentralized cloud, production-ready UX</p>
           <h1>Decentralized Cloud. Finally Usable.</h1>
           <p class="lead">
             Deploy workloads in minutes, let providers bid in real-time, and pay only for what runs. Comnetish gives you cloud economics without legacy hyperscaler lock-in.
           </p>
           <div class="heroActions">
-            <a href="http://localhost:3000/deploy" class="btn btnPrimary">Deploy Now</a>
+            <a href={deployUrl} class="btn btnPrimary">Deploy Now</a>
             <a href="/providers" class="btn btnGhost">Become a Provider</a>
           </div>
         </div>
@@ -29,24 +56,25 @@ const apiBase = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3001';
     <section class="section statsBarWrap" data-live-stats data-api={apiBase}>
       <div class="wrap">
         <div class="statsBar card" data-reveal>
-          <div>
+          <div data-default={fallbackProviders}>
             <span>Live Providers</span>
-            <strong data-stat="providers">—</strong>
+            <strong data-stat="providers">{fallbackProviders}</strong>
           </div>
-          <div>
-            <span>Deployments Today</span>
-            <strong data-stat="deployments">—</strong>
+          <div data-default={fallbackDeployments}>
+            <span>Total Deployments</span>
+            <strong data-stat="deployments">{fallbackDeployments}</strong>
           </div>
-          <div>
+          <div data-default={fallbackVolume}>
             <span>CNT Volume</span>
-            <strong data-stat="volume">—</strong>
+            <strong data-stat="volume">{fallbackVolume}</strong>
           </div>
         </div>
+        <p class="statsMeta" data-stats-status aria-live="polite">Loading live network metrics...</p>
       </div>
     </section>
 
     <section class="section">
-      <div class="wrap">
+      <div class="wrap sectionWrap">
         <h2 class="sectionTitle" data-reveal>How It Works</h2>
         <p class="sectionSub" data-reveal>From deploy intent to live containers in three market-driven steps.</p>
         <div class="howGrid">
@@ -70,11 +98,12 @@ const apiBase = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3001';
     </section>
 
     <section class="section">
-      <div class="wrap">
+      <div class="wrap sectionWrap">
         <h2 class="sectionTitle" data-reveal>Comnetish vs AWS</h2>
         <p class="sectionSub" data-reveal>Representative monthly pricing for common workloads.</p>
         <div class="tableWrap card" data-reveal>
           <table>
+            <caption class="srOnly">Representative monthly pricing comparison between Comnetish and AWS for common workloads.</caption>
             <thead>
               <tr>
                 <th>Workload</th>
@@ -85,55 +114,60 @@ const apiBase = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3001';
             </thead>
             <tbody>
               <tr>
-                <td>Node.js API (2 vCPU / 4GB)</td>
-                <td>$39 / mo</td>
-                <td>$82 / mo</td>
-                <td class="mint">52%</td>
+                <td data-label="Workload">Node.js API (2 vCPU / 4GB)</td>
+                <td data-label="Comnetish">$39 / mo</td>
+                <td data-label="AWS">$82 / mo</td>
+                <td data-label="Savings" class="mint">52%</td>
               </tr>
               <tr>
-                <td>Python API (4 vCPU / 8GB)</td>
-                <td>$68 / mo</td>
-                <td>$146 / mo</td>
-                <td class="mint">53%</td>
+                <td data-label="Workload">Python API (4 vCPU / 8GB)</td>
+                <td data-label="Comnetish">$68 / mo</td>
+                <td data-label="AWS">$146 / mo</td>
+                <td data-label="Savings" class="mint">53%</td>
               </tr>
               <tr>
-                <td>PostgreSQL DB (4 vCPU / 16GB)</td>
-                <td>$119 / mo</td>
-                <td>$279 / mo</td>
-                <td class="mint">57%</td>
+                <td data-label="Workload">PostgreSQL DB (4 vCPU / 16GB)</td>
+                <td data-label="Comnetish">$119 / mo</td>
+                <td data-label="AWS">$279 / mo</td>
+                <td data-label="Savings" class="mint">57%</td>
               </tr>
             </tbody>
           </table>
         </div>
+        <p class="tableNote" data-reveal>
+          Based on representative on-demand workloads in a US region as of March 2026. Final pricing varies with storage,
+          egress, and provider competition.
+        </p>
       </div>
     </section>
 
     <section class="section">
-      <div class="wrap">
+      <div class="wrap sectionWrap">
         <h2 class="sectionTitle" data-reveal>Provider Earnings Calculator</h2>
         <p class="sectionSub" data-reveal>Estimate monthly rewards from your offered machine resources.</p>
         <div class="card calc" data-earnings-calculator data-reveal>
           <div>
-            <label>
-              CPU Cores: <strong data-output="cpu">2</strong>
-              <input data-input="cpu" type="range" min="1" max="32" value="2" />
+            <label for="landing-cpu">
+              CPU Cores: <strong data-output="cpu">{defaultCalcCpu}</strong>
             </label>
-            <label>
-              RAM (GB): <strong data-output="ram">4</strong>
-              <input data-input="ram" type="range" min="1" max="128" value="4" />
+            <input id="landing-cpu" data-input="cpu" type="range" min="1" max="32" value={defaultCalcCpu} aria-label="CPU cores" />
+            <label for="landing-ram">
+              RAM (GB): <strong data-output="ram">{defaultCalcRam}</strong>
             </label>
+            <input id="landing-ram" data-input="ram" type="range" min="1" max="128" value={defaultCalcRam} aria-label="RAM in gigabytes" />
           </div>
-          <div class="calcOut">
+          <div class="calcOut" role="status" aria-live="polite" aria-atomic="true">
             <span>Estimated monthly earnings</span>
-            <strong data-output="cnt">0 CNT</strong>
-            <small data-output="usd">$0.00</small>
+            <strong data-output="cnt">{defaultCalcCnt.toLocaleString()} CNT</strong>
+            <small data-output="usd">${defaultCalcUsd.toFixed(2)}</small>
+            <p class="srOnly" data-output="summary"></p>
           </div>
         </div>
       </div>
     </section>
 
     <section class="section">
-      <div class="wrap">
+      <div class="wrap sectionWrap">
         <h2 class="sectionTitle" data-reveal>Built on proven open-source infrastructure</h2>
         <div class="techGrid">
           <article class="card tech" data-reveal>
@@ -171,9 +205,12 @@ const apiBase = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3001';
             <h2 class="sectionTitle">Ready to leave AWS behind?</h2>
             <p class="sectionSub">Get early access updates and migration playbooks.</p>
           </div>
-          <form data-email-capture>
+          <form data-email-capture data-json-action={waitlistJsonAction} action={waitlistFormAction} method="post">
             <label class="srOnly" for="email">Email</label>
-            <input id="email" type="email" placeholder="you@company.com" required />
+            <input id="email" name="email" type="email" placeholder="you@company.com" autocomplete="email" inputmode="email" required />
+            <input type="hidden" name="source" value="website" />
+            <input type="hidden" name="successUrl" value={waitlistSuccessUrl} />
+            <input type="hidden" name="errorUrl" value={waitlistErrorUrl} />
             <button type="submit" class="btn btnPrimary">Join waitlist</button>
             <small data-capture-status aria-live="polite"></small>
           </form>
@@ -205,6 +242,15 @@ const apiBase = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3001';
       position: relative;
       z-index: 1;
       padding: 72px 0;
+    }
+
+    .heroContent {
+      max-width: 720px;
+    }
+
+    .sectionWrap {
+      display: grid;
+      gap: 8px;
     }
 
     .eyebrow {
@@ -243,6 +289,12 @@ const apiBase = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3001';
       padding-top: 0;
     }
 
+    .statsMeta {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
     .statsBar {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -259,6 +311,7 @@ const apiBase = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3001';
       display: grid;
       align-content: center;
       gap: 8px;
+      text-align: left;
     }
 
     .statsBar span {
@@ -280,6 +333,9 @@ const apiBase = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3001';
 
     .howCard {
       padding: 18px;
+      min-height: 210px;
+      display: grid;
+      align-content: start;
     }
 
     .howIcon {
@@ -311,6 +367,13 @@ const apiBase = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3001';
       overflow: auto;
     }
 
+    .tableNote {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.55;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -338,10 +401,10 @@ const apiBase = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3001';
 
     .calc {
       margin-top: 24px;
-      padding: 20px;
+      padding: 24px;
       display: grid;
       grid-template-columns: 1.1fr 0.9fr;
-      gap: 16px;
+      gap: 22px;
       align-items: center;
     }
 
@@ -391,6 +454,9 @@ const apiBase = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3001';
 
     .tech {
       padding: 18px;
+      min-height: 190px;
+      display: grid;
+      align-content: start;
     }
 
     .tech h3 {
@@ -405,10 +471,10 @@ const apiBase = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3001';
     }
 
     .cta {
-      padding: 24px;
+      padding: 28px;
       display: grid;
       grid-template-columns: 1fr auto;
-      gap: 18px;
+      gap: 22px;
       align-items: center;
     }
 
@@ -416,11 +482,11 @@ const apiBase = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3001';
       display: grid;
       grid-template-columns: minmax(240px, 360px) auto;
       gap: 10px;
-      align-items: start;
+      align-items: center;
     }
 
     .cta input {
-      height: 44px;
+      height: 46px;
       border: 1px solid var(--border);
       border-radius: 10px;
       background: rgba(0, 0, 0, 0.2);
@@ -463,6 +529,11 @@ const apiBase = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3001';
         grid-template-columns: 1fr;
       }
 
+      .howCard,
+      .tech {
+        min-height: 0;
+      }
+
       .calc,
       .cta {
         grid-template-columns: 1fr;
@@ -477,6 +548,60 @@ const apiBase = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3001';
       .statsBar {
         grid-template-columns: 1fr;
       }
+
+      table,
+      thead,
+      tbody,
+      tr,
+      th,
+      td {
+        display: block;
+      }
+
+      thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+      }
+
+      table {
+        min-width: 0;
+      }
+
+      tr {
+        padding: 8px 14px;
+      }
+
+      td {
+        display: grid;
+        grid-template-columns: minmax(110px, 140px) 1fr;
+        gap: 10px;
+        align-items: baseline;
+      }
+
+      td::before {
+        content: attr(data-label);
+        color: var(--muted);
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .cta {
+        padding: 22px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #heroParticles {
+        display: none;
+      }
+
+      .howIcon {
+        animation: none;
+      }
     }
   </style>
 
@@ -487,8 +612,8 @@ const apiBase = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3001';
       const ctx = canvas.getContext('2d');
       if (ctx) {
         const DPR = window.devicePixelRatio || 1;
-          type Particle = { x: number; y: number; vx: number; vy: number; r: number };
-          const particles: Particle[] = [];
+        type Particle = { x: number; y: number; vx: number; vy: number; r: number };
+        const particles: Particle[] = [];
         const count = 44;
 
         const resize = () => {

@@ -7,31 +7,11 @@ import { useEffect, useState } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 import { LeaseTable, type LeaseTableItem } from './components/lease-table';
 import { MetricCard } from './components/metric-card';
+import { NetworkMap, REGIONS } from './components/network-map';
 import { ResourceCard } from './components/resource-card';
 import { SidebarNav } from './components/sidebar-nav';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
-// ── localStorage helpers ──────────────────────────────────────────────────────
-function storageKey(addr: string) {
-  return `comnetish_registered_${addr.toLowerCase()}`;
-}
-
-function isRegisteredLocally(addr: string): boolean {
-  try {
-    return localStorage.getItem(storageKey(addr)) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function saveRegisteredLocally(addr: string) {
-  try {
-    localStorage.setItem(storageKey(addr), '1');
-  } catch {
-    // storage unavailable — ignore
-  }
-}
 
 interface Lease {
   id: string;
@@ -54,8 +34,9 @@ interface ProviderStats {
 }
 
 interface ProviderSession {
-  token: string;
+  id: string;
   expiresAt: string;
+  emailVerified: boolean;
 }
 
 interface ProviderProfile {
@@ -69,13 +50,9 @@ interface ProviderProfile {
   status: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE';
 }
 
-async function fetchProviderData<T>(path: string, token?: string | null) {
+async function fetchProviderData<T>(path: string) {
   const response = await fetch(`${API_BASE}${path}`, {
-    headers: token
-      ? {
-          Authorization: `Bearer ${token}`
-        }
-      : undefined
+    credentials: 'include'
   });
 
   if (!response.ok) {
@@ -98,6 +75,7 @@ export default function ProviderConsolePage() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [pricePerCpu, setPricePerCpu] = useState(1);
   const [providerStatusSetting, setProviderStatusSetting] = useState<'ACTIVE' | 'MAINTENANCE'>('ACTIVE');
+  const [regionSetting, setRegionSetting] = useState('us-east-1');
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsSavedAt, setSettingsSavedAt] = useState<number | null>(null);
@@ -138,14 +116,15 @@ export default function ProviderConsolePage() {
       setAuthError(null);
 
       try {
-        const challengeResponse = await fetch(`${API_BASE}/api/providers/auth/challenge`, {
+        const challengeResponse = await fetch(`${API_BASE}/api/auth/wallet/challenge`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ address: normalizedAddress })
+          credentials: 'include',
+          body: JSON.stringify({ address: normalizedAddress, intent: 'login' })
         });
 
         if (!challengeResponse.ok) {
-          throw new Error('This wallet is not registered as a provider yet. Complete onboarding first.');
+          throw new Error('Could not request provider wallet challenge.');
         }
 
         const challengePayload = (await challengeResponse.json()) as {
@@ -156,12 +135,14 @@ export default function ProviderConsolePage() {
           message: challengePayload.data.message
         });
 
-        const verifyResponse = await fetch(`${API_BASE}/api/providers/auth/verify`, {
+        const verifyResponse = await fetch(`${API_BASE}/api/auth/wallet/verify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             address: normalizedAddress,
-            signature
+            signature,
+            role: 'PROVIDER'
           })
         });
 
@@ -175,8 +156,19 @@ export default function ProviderConsolePage() {
           };
         };
 
+        const providerCheck = await fetch(`${API_BASE}/api/providers/me`, {
+          credentials: 'include'
+        });
+
+        if (providerCheck.status === 404) {
+          throw new Error('This wallet is not registered as a provider yet. Complete onboarding first.');
+        }
+
+        if (!providerCheck.ok) {
+          throw new Error('Provider profile check failed.');
+        }
+
         if (!cancelled) {
-          saveRegisteredLocally(normalizedAddress);
           setAuthSession(verifyPayload.data.session);
           setAuthAddress(normalizedAddress);
           setNeedsOnboarding(false);
@@ -188,9 +180,7 @@ export default function ProviderConsolePage() {
           setAuthAddress(null);
           setAuthError(message);
           const unregistered = message.toLowerCase().includes('not registered as a provider');
-          // Only redirect to onboarding if this address has never registered before;
-          // if localStorage says they registered before, the API might just be temporarily down.
-          setNeedsOnboarding(unregistered && !isRegisteredLocally(normalizedAddress));
+          setNeedsOnboarding(unregistered);
         }
       } finally {
         if (!cancelled) {
@@ -206,26 +196,27 @@ export default function ProviderConsolePage() {
     };
   }, [address, authAddress, authSession, isConnected, signMessageAsync]);
 
-  const queriesEnabled = !isConnected || Boolean(authSession?.token);
+  const isAuthenticated = Boolean(authSession?.id);
+  const queriesEnabled = !isConnected || isAuthenticated;
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['provider-stats', authAddress ?? address ?? 'demo'],
-    queryFn: async () => fetchProviderData<ProviderStats>('/api/providers/me/stats', authSession?.token),
+    queryFn: async () => fetchProviderData<ProviderStats>('/api/providers/me/stats'),
     enabled: queriesEnabled,
     refetchInterval: 30_000
   });
 
   const { data: leases, isLoading: leasesLoading } = useQuery({
     queryKey: ['provider-leases', authAddress ?? address ?? 'demo'],
-    queryFn: async () => fetchProviderData<Lease[]>('/api/providers/me/leases', authSession?.token),
+    queryFn: async () => fetchProviderData<Lease[]>('/api/providers/me/leases'),
     enabled: queriesEnabled,
     refetchInterval: 20_000
   });
 
   const { data: providerProfile, refetch: refetchProfile } = useQuery({
     queryKey: ['provider-profile', authAddress ?? address ?? 'demo'],
-    queryFn: async () => fetchProviderData<ProviderProfile>('/api/providers/me', authSession?.token),
-    enabled: Boolean(authSession?.token),
+    queryFn: async () => fetchProviderData<ProviderProfile>('/api/providers/me'),
+    enabled: isAuthenticated,
     staleTime: 60_000
   });
 
@@ -236,11 +227,14 @@ export default function ProviderConsolePage() {
       if (providerProfile.status === 'ACTIVE' || providerProfile.status === 'MAINTENANCE') {
         setProviderStatusSetting(providerProfile.status);
       }
+      if (providerProfile.region) {
+        setRegionSetting(providerProfile.region);
+      }
     }
   }, [providerProfile]);
 
   async function saveSettings() {
-    if (!authSession?.token) return;
+    if (!isAuthenticated) return;
     setSettingsSaving(true);
     setSettingsError(null);
     setSettingsSavedAt(null);
@@ -248,10 +242,10 @@ export default function ProviderConsolePage() {
       const res = await fetch(`${API_BASE}/api/providers/me`, {
         method: 'PATCH',
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authSession.token}`
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ pricePerCpu, status: providerStatusSetting })
+        credentials: 'include',
+        body: JSON.stringify({ pricePerCpu, status: providerStatusSetting, region: regionSetting })
       });
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { message?: string };
@@ -324,7 +318,7 @@ export default function ProviderConsolePage() {
       <div className="relative z-10 mx-auto max-w-[1440px]">
         <div className="grid grid-cols-12 gap-6">
           <div className="col-span-12 lg:col-span-3 xl:col-span-2">
-            <SidebarNav isRegistered={Boolean(authSession) || isRegisteredLocally(address ?? '')} />
+            <SidebarNav isRegistered={isAuthenticated} />
           </div>
 
           <div className="col-span-12 space-y-8 lg:col-span-9 xl:col-span-10">
@@ -339,6 +333,25 @@ export default function ProviderConsolePage() {
                 <ConnectButton />
               </div>
             </header>
+
+            {/* Network map — always visible */}
+            <section className="rounded-2xl border border-white/10 bg-[#111827] shadow-[0_16px_40px_rgba(0,0,0,0.35)] overflow-hidden">
+              <div className="flex items-center justify-between px-6 pt-5 pb-0">
+                <div>
+                  <h3 className="text-sm font-medium text-slate-300">Global Provider Network</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">Live connections between active provider nodes</p>
+                </div>
+                {isAuthenticated && providerProfile?.region ? (
+                  <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs text-blue-300">
+                    Your node: {REGIONS.find(r => r.id === regionSetting)?.label ?? regionSetting}
+                  </span>
+                ) : null}
+              </div>
+              <NetworkMap
+                activeRegion={isAuthenticated ? regionSetting : undefined}
+                className="h-56 w-full"
+              />
+            </section>
 
             {!isConnected ? (
               <section className="rounded-2xl border border-white/10 bg-[#111827] p-8 shadow-[0_16px_40px_rgba(0,0,0,0.35)]">
@@ -360,7 +373,7 @@ export default function ProviderConsolePage() {
                         <a
                           href="https://metamask.io/download/"
                           target="_blank"
-                          rel="noreferrer"
+                          rel="noopener noreferrer"
                           className="mt-2 inline-flex text-xs font-semibold text-amber-100 underline underline-offset-4"
                         >
                           Install MetaMask
@@ -457,10 +470,20 @@ export default function ProviderConsolePage() {
 
                     {/* Region */}
                     <div>
-                      <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">Region</p>
-                      <div className="rounded-lg border border-white/10 bg-[#0B1220] px-4 py-3 text-sm text-slate-300">
-                        {providerProfile?.region ?? '—'}
-                      </div>
+                      <label htmlFor="region" className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">
+                        Region
+                      </label>
+                      <select
+                        id="region"
+                        value={regionSetting}
+                        onChange={(e) => setRegionSetting(e.target.value)}
+                        className="w-full rounded-lg border border-white/10 bg-[#0B1220] px-4 py-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      >
+                        {REGIONS.map((r) => (
+                          <option key={r.id} value={r.id} className="bg-[#0B1220]">{r.label} ({r.id})</option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-xs text-slate-500">Region updates are reflected on the network map above.</p>
                     </div>
 
                     {/* Capacity summary */}
@@ -524,7 +547,7 @@ export default function ProviderConsolePage() {
                     <button
                       type="button"
                       onClick={() => void saveSettings()}
-                      disabled={settingsSaving || !authSession?.token}
+                      disabled={settingsSaving || !isAuthenticated}
                       className="rounded-lg bg-[#3B82F6] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2563EB] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {settingsSaving ? 'Saving…' : 'Save Settings'}

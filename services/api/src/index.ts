@@ -8,6 +8,7 @@ import { HttpError } from './lib/http-error';
 import { logger } from './lib/logger';
 import { requestLogger } from './middleware/request-logger';
 import { ai } from './routes/ai';
+import { auth } from './routes/auth';
 import { bids } from './routes/bids';
 import { deployments } from './routes/deployments';
 import { leases } from './routes/leases';
@@ -24,7 +25,7 @@ const wsDeploymentClients = new Map<string, Set<{ send: (message: string) => voi
 // Support comma-separated origins for local multi-machine testing
 const corsOrigins = env.API_CORS_ORIGIN.split(',').map((o) => o.trim());
 const corsOrigin = corsOrigins.length === 1 ? (corsOrigins[0] ?? env.API_CORS_ORIGIN) : corsOrigins;
-app.use('*', cors({ origin: corsOrigin }));
+app.use('*', cors({ origin: corsOrigin, credentials: true }));
 app.use('*', requestLogger);
 
 app.get('/health', (c) =>
@@ -36,6 +37,7 @@ app.get('/health', (c) =>
 );
 
 app.route('/api/providers', providers);
+app.route('/api/auth', auth);
 app.route('/api/deployments', deployments);
 app.route('/api/leases', leases);
 app.route('/api/bids', bids);

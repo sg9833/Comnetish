@@ -2,9 +2,17 @@
 type Props = {
   title: string;
   description: string;
+  socialImage?: string;
 };
 
-const { title, description } = Astro.props;
+const { title, description, socialImage } = Astro.props;
+const isDev = import.meta.env.DEV;
+const siteUrl = import.meta.env.PUBLIC_SITE_URL ?? Astro.site?.toString() ?? 'http://localhost:4321';
+const siteOrigin = new URL(siteUrl);
+const consoleUrl = import.meta.env.PUBLIC_CONSOLE_URL ?? (isDev ? 'http://localhost:3000' : siteUrl);
+const deployUrl = new URL('/deploy', consoleUrl).toString();
+const canonicalUrl = new URL(Astro.url.pathname, siteOrigin).toString();
+const socialImageUrl = socialImage ? new URL(socialImage, siteOrigin).toString() : new URL('/social-card.svg', siteOrigin).toString();
 ---
 
 <!doctype html>
@@ -13,6 +21,21 @@ const { title, description } = Astro.props;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
+    <meta name="robots" content="index,follow" />
+    <meta name="theme-color" content="#060a12" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Comnetish" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={socialImageUrl} />
+    <meta property="og:image:alt" content="Comnetish decentralized cloud marketing card" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={socialImageUrl} />
+    <link rel="canonical" href={canonicalUrl} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -20,6 +43,9 @@ const { title, description } = Astro.props;
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Syne:wght@500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <script is:inline>
+      document.documentElement.dataset.js = 'true';
+    </script>
     <style>
       :root {
         --bg: #060a12;
@@ -31,6 +57,9 @@ const { title, description } = Astro.props;
         --mint-soft: rgba(0, 255, 194, 0.14);
         --border: rgba(255, 255, 255, 0.1);
         --danger: #ff6b35;
+        --focus: #8fd3ff;
+        --content-max: 1240px;
+        --content-pad: clamp(20px, 4vw, 48px);
       }
 
       * {
@@ -54,8 +83,9 @@ const { title, description } = Astro.props;
         text-decoration: none;
       }
 
-      .wrap {
-        width: min(1080px, calc(100% - 4rem));
+      :global(.wrap) {
+        width: min(var(--content-max), calc(100% - (var(--content-pad) * 2)));
+        padding-inline: 0;
         margin: 0 auto;
       }
 
@@ -99,12 +129,14 @@ const { title, description } = Astro.props;
       .navLinks {
         display: inline-flex;
         align-items: center;
+        flex-wrap: wrap;
+        justify-content: flex-end;
         gap: 22px;
         color: var(--muted);
         font-size: 0.95rem;
       }
 
-      .btn {
+      :global(.btn) {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -115,55 +147,73 @@ const { title, description } = Astro.props;
         transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
       }
 
-      .btn:hover {
+      :global(.btn:hover) {
         transform: translateY(-1px);
       }
 
-      .btnPrimary {
+      :global(.btn:disabled) {
+        opacity: 0.7;
+        cursor: wait;
+        transform: none;
+      }
+
+      :global(.btnPrimary) {
         background: linear-gradient(135deg, #00ffc2, #78ffd9);
         color: #021117;
         border-color: transparent;
         box-shadow: 0 10px 28px rgba(0, 255, 194, 0.25);
       }
 
-      .btnGhost {
+      :global(.btnGhost) {
         background: rgba(255, 255, 255, 0.02);
       }
 
-      section {
+      :global(section) {
         scroll-margin-top: 110px;
       }
 
-      .section {
+      :global(.section) {
         padding: 76px 0;
       }
 
-      .sectionTitle {
+      :global(.sectionTitle) {
         margin: 0;
         font-family: Syne, Inter, sans-serif;
         font-size: clamp(1.5rem, 2.5vw, 2.2rem);
       }
 
-      .sectionSub {
+      :global(.sectionSub) {
         color: var(--muted);
         margin: 10px 0 0;
       }
 
-      .card {
+      :global(.card) {
         border: 1px solid var(--border);
         background: linear-gradient(180deg, rgba(18, 26, 41, 0.82), rgba(11, 17, 29, 0.86));
         border-radius: 16px;
       }
 
-      [data-reveal] {
+      :global([data-reveal]) {
+        opacity: 1;
+        transform: none;
+      }
+
+      html[data-js='true'] :global([data-reveal]) {
         opacity: 0;
         transform: translateY(12px);
         transition: opacity 560ms ease, transform 560ms ease;
       }
 
-      [data-reveal].in {
+      html[data-js='true'] :global([data-reveal].in) {
         opacity: 1;
         transform: translateY(0);
+      }
+
+      :global(a:focus-visible),
+      :global(button:focus-visible),
+      :global(input:focus-visible) {
+        outline: 2px solid var(--focus);
+        outline-offset: 3px;
       }
 
       .footer {
@@ -174,15 +224,30 @@ const { title, description } = Astro.props;
       }
 
       @media (max-width: 860px) {
-        .wrap {
-          width: min(1080px, calc(100% - 1.5rem));
-        }
-
         .nav {
           height: auto;
           flex-wrap: wrap;
           gap: 12px;
           padding: 16px 0;
+        }
+
+        .navLinks {
+          width: 100%;
+          justify-content: center;
+          gap: 12px;
+        }
+
+        .navLinks .btn {
+          width: auto;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html[data-js='true'] :global([data-reveal]),
+        html[data-js='true'] :global([data-reveal].in) {
+          opacity: 1;
+          transform: none;
+          transition: none;
         }
       }
     </style>
@@ -198,7 +263,7 @@ const { title, description } = Astro.props;
           <a href="/">Home</a>
           <a href="/providers">Providers</a>
           <a href="/docs">Docs</a>
-          <a class="btn btnGhost" href="http://localhost:3000/deploy">Deploy Now</a>
+          <a class="btn btnGhost" href={deployUrl}>Deploy Now</a>
         </nav>
       </div>
     </header>
@@ -208,29 +273,40 @@ const { title, description } = Astro.props;
     </footer>
 
     <script>
-      const revealTargets = Array.from(document.querySelectorAll('[data-reveal]'));
-      const observer = new IntersectionObserver(
-        (entries) => {
-          for (const entry of entries) {
-            if (entry.isIntersecting) {
-              entry.target.classList.add('in');
-              observer.unobserve(entry.target);
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const revealTargets = Array.from(document.querySelectorAll<HTMLElement>('[data-reveal]'));
+      if (reducedMotion || !('IntersectionObserver' in window)) {
+        for (const node of revealTargets) {
+          node.classList.add('in');
+        }
+      } else {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('in');
+                observer.unobserve(entry.target);
+              }
             }
-          }
-        },
-        { threshold: 0.16 }
-      );
+          },
+          { threshold: 0.16 }
+        );
 
-      for (const node of revealTargets) {
-        observer.observe(node);
+        for (const node of revealTargets) {
+          observer.observe(node);
+        }
       }
 
       const statsEl = document.querySelector<HTMLElement>('[data-live-stats]');
-      const API_BASE = statsEl?.getAttribute('data-api') || 'http://localhost:3001';
+      const API_BASE = statsEl?.dataset.api?.trim() || '';
       if (statsEl) {
         const providersNode = statsEl.querySelector<HTMLElement>('[data-stat="providers"]');
         const deploymentsNode = statsEl.querySelector<HTMLElement>('[data-stat="deployments"]');
         const volumeNode = statsEl.querySelector<HTMLElement>('[data-stat="volume"]');
+        const statusNode = statsEl.querySelector<HTMLElement>('[data-stats-status]');
+        const providersFallback = providersNode?.textContent?.trim() || '0';
+        const deploymentsFallback = deploymentsNode?.textContent?.trim() || '0';
+        const volumeFallback = volumeNode?.textContent?.trim() || '0 CNT';
 
         const setValue = (el: HTMLElement | null, value: string) => {
           if (el) {
@@ -238,37 +314,58 @@ const { title, description } = Astro.props;
           }
         };
 
-        const loadStats = async () => {
-          try {
-            const apiRoot = API_BASE.replace(/\/$/, '');
-            const withApiPrefix = (path: string) => (apiRoot.endsWith('/api') ? `${apiRoot}${path}` : `${apiRoot}/api${path}`);
-            const [providerRes, platformRes] = await Promise.all([
-              fetch(withApiPrefix('/providers/stats')),
-              fetch(withApiPrefix('/stats'))
-            ]);
-
-            if (!providerRes.ok || !platformRes.ok) {
-              throw new Error('failed');
-            }
-
-            const providerPayload = await providerRes.json();
-            const platformPayload = await platformRes.json();
-            const providers = providerPayload?.data?.active ?? providerPayload?.data?.total ?? 0;
-            const deployments = platformPayload?.data?.totalDeployments ?? 0;
-            const volume = platformPayload?.data?.cntVolume ?? 0;
-
-            setValue(providersNode, Number(providers).toLocaleString());
-            setValue(deploymentsNode, Number(deployments).toLocaleString());
-            setValue(volumeNode, `${Number(volume).toLocaleString()} CNT`);
-          } catch {
-            setValue(providersNode, '—');
-            setValue(deploymentsNode, '—');
-            setValue(volumeNode, '—');
+        const setStatus = (value: string) => {
+          if (statusNode) {
+            statusNode.textContent = value;
           }
         };
 
-        loadStats();
-        setInterval(loadStats, 30_000);
+        if (!API_BASE) {
+          setStatus('Live metrics are unavailable because the website API URL is not configured.');
+          setValue(providersNode, providersFallback);
+          setValue(deploymentsNode, deploymentsFallback);
+          setValue(volumeNode, volumeFallback);
+        } else {
+          const loadStats = async () => {
+            const controller = new AbortController();
+            const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+
+            try {
+              setStatus('Loading live network metrics...');
+              const apiRoot = API_BASE.replace(/\/$/, '');
+              const withApiPrefix = (path: string) => (apiRoot.endsWith('/api') ? `${apiRoot}${path}` : `${apiRoot}/api${path}`);
+              const [providerRes, platformRes] = await Promise.all([
+                fetch(withApiPrefix('/providers/stats'), { signal: controller.signal }),
+                fetch(withApiPrefix('/stats'), { signal: controller.signal })
+              ]);
+
+              if (!providerRes.ok || !platformRes.ok) {
+                throw new Error('failed');
+              }
+
+              const providerPayload = await providerRes.json();
+              const platformPayload = await platformRes.json();
+              const providers = providerPayload?.data?.active ?? providerPayload?.data?.total ?? 0;
+              const deployments = platformPayload?.data?.totalDeployments ?? 0;
+              const volume = platformPayload?.data?.cntVolume ?? 0;
+
+              setValue(providersNode, Number(providers).toLocaleString());
+              setValue(deploymentsNode, Number(deployments).toLocaleString());
+              setValue(volumeNode, `${Number(volume).toLocaleString()} CNT`);
+              setStatus('Live metrics update automatically every 30 seconds.');
+            } catch {
+              setValue(providersNode, providersFallback);
+              setValue(deploymentsNode, deploymentsFallback);
+              setValue(volumeNode, volumeFallback);
+              setStatus('Live metrics are temporarily unavailable.');
+            } finally {
+              window.clearTimeout(timeoutId);
+            }
+          };
+
+          loadStats();
+          window.setInterval(loadStats, 30_000);
+        }
       }
 
       const calculatorRoots = Array.from(document.querySelectorAll<HTMLElement>('[data-earnings-calculator]'));
@@ -279,6 +376,7 @@ const { title, description } = Astro.props;
         const ramOut = root.querySelector<HTMLElement>('[data-output="ram"]');
         const cntOut = root.querySelector<HTMLElement>('[data-output="cnt"]');
         const usdOut = root.querySelector<HTMLElement>('[data-output="usd"]');
+        const summaryOut = root.querySelector<HTMLElement>('[data-output="summary"]');
 
         const compute = () => {
           const cpu = Number(cpuInput?.value || 2);
@@ -290,6 +388,13 @@ const { title, description } = Astro.props;
           if (ramOut) ramOut.textContent = String(ram);
           if (cntOut) cntOut.textContent = `${cntMonthly.toLocaleString()} CNT`;
           if (usdOut) usdOut.textContent = `$${usdMonthly.toFixed(2)}`;
+          cpuInput?.setAttribute('aria-valuenow', String(cpu));
+          cpuInput?.setAttribute('aria-valuetext', `${cpu} CPU cores`);
+          ramInput?.setAttribute('aria-valuenow', String(ram));
+          ramInput?.setAttribute('aria-valuetext', `${ram} gigabytes of RAM`);
+          if (summaryOut) {
+            summaryOut.textContent = `${cpu} CPU cores and ${ram} GB RAM estimate ${cntMonthly.toLocaleString()} CNT or $${usdMonthly.toFixed(2)} per month.`;
+          }
         };
 
         cpuInput?.addEventListener('input', compute);
@@ -300,22 +405,37 @@ const { title, description } = Astro.props;
       const captureForm = document.querySelector<HTMLFormElement>('[data-email-capture]');
       if (captureForm) {
         const statusNode = captureForm.querySelector<HTMLElement>('[data-capture-status]');
+        const emailInput = captureForm.querySelector<HTMLInputElement>('input[type="email"]');
+        const submitButton = captureForm.querySelector<HTMLButtonElement>('button[type="submit"]');
+        const sourceInput = captureForm.querySelector<HTMLInputElement>('input[name="source"]');
+        const jsonAction = captureForm.dataset.jsonAction || captureForm.action;
+
         captureForm.addEventListener('submit', async (event) => {
           event.preventDefault();
-          const emailInput = captureForm.querySelector<HTMLInputElement>('input[type="email"]');
           const value = emailInput?.value?.trim() || '';
-          if (!value || !value.includes('@')) {
+          if (!emailInput?.checkValidity() || !value) {
+            emailInput?.reportValidity();
             if (statusNode) statusNode.textContent = 'Enter a valid email address.';
             return;
           }
 
+          if (!jsonAction) {
+            if (statusNode) statusNode.textContent = 'Waitlist submission is unavailable right now.';
+            return;
+          }
+
           try {
-            const apiRoot = API_BASE.replace(/\/$/, '');
-            const waitlistUrl = apiRoot.endsWith('/api') ? `${apiRoot}/waitlist` : `${apiRoot}/api/waitlist`;
-            const response = await fetch(waitlistUrl, {
+            if (submitButton) {
+              submitButton.disabled = true;
+            }
+            if (statusNode) {
+              statusNode.textContent = 'Joining waitlist...';
+            }
+
+            const response = await fetch(jsonAction, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: value, source: 'website' })
+              body: JSON.stringify({ email: value, source: sourceInput?.value || 'website' })
             });
 
             if (!response.ok) {
@@ -326,6 +446,10 @@ const { title, description } = Astro.props;
             captureForm.reset();
           } catch {
             if (statusNode) statusNode.textContent = 'Failed to join waitlist. Please try again.';
+          } finally {
+            if (submitButton) {
+              submitButton.disabled = false;
+            }
           }
         });
       }

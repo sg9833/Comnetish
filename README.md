@@ -241,7 +241,7 @@ All variables are documented in `.env.example`. Key groups:
 | Consoles  | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_CHAIN_RPC_URL` (optional), `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID` |
 | AI Agent  | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`                                                                 |
 | Contracts | `PRIVATE_KEY`, `SEPOLIA_RPC_URL`                                                                       |
-| Website   | `PUBLIC_SITE_URL`, `PUBLIC_CONSOLE_URL`                                                                |
+| Website   | `PUBLIC_SITE_URL`, `PUBLIC_API_URL`, `PUBLIC_CONSOLE_URL`, `PUBLIC_PROVIDER_CONSOLE_URL`               |
 
 Never commit populated `.env` files. All `.env.*` files are gitignored by default.
 

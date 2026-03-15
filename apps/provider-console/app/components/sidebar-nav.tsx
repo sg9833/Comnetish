@@ -10,7 +10,6 @@ const routeItems = [
 ];
 
 const sectionItems = [
-  { label: 'Dashboard', href: '#dashboard' },
   { label: 'Active Leases', href: '#active-leases' },
   { label: 'Earnings', href: '#earnings' },
   { label: 'Resources', href: '#resources' },
@@ -83,24 +82,31 @@ export function SidebarNav({ isRegistered = false }: { isRegistered?: boolean })
           );
         })}
 
-        {isDashboardRoute ? (
+        {isDashboardRoute && isRegistered ? (
           <>
             <div className="my-3 border-t border-white/10" />
-            {sectionItems.map((item) => (
-              <a
-                key={item.label}
-                href={item.href}
-                className={[
-                  'block rounded-xl px-4 py-3 text-sm transition-colors',
-                  activeSection === item.href.replace('#', '')
-                    ? 'bg-[#3B82F6]/20 text-[#93C5FD]'
-                    : 'text-slate-300 hover:bg-white/5 hover:text-slate-100'
-                ].join(' ')}
-                aria-current={activeSection === item.href.replace('#', '') ? 'page' : undefined}
-              >
-                {item.label}
-              </a>
-            ))}
+            {sectionItems.map((item) => {
+              const sectionId = item.href.replace('#', '');
+              return (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  className={[
+                    'block rounded-xl px-4 py-3 text-sm transition-colors cursor-pointer',
+                    activeSection === sectionId
+                      ? 'bg-[#3B82F6]/20 text-[#93C5FD]'
+                      : 'text-slate-300 hover:bg-white/5 hover:text-slate-100'
+                  ].join(' ')}
+                  aria-current={activeSection === sectionId ? 'page' : undefined}
+                >
+                  {item.label}
+                </a>
+              );
+            })}
           </>
         ) : null}
       </nav>
