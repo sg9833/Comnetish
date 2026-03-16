@@ -1,4 +1,5 @@
 import './globals.css';
+import '@rainbow-me/rainbowkit/styles.css';
 import type { ReactNode } from 'react';
 import { ConsoleShell } from './console-shell';
 import { jetBrainsMono, syne } from './fonts';
