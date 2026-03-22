@@ -19,6 +19,14 @@ const envSchema = z.object({
   AUTH_ACCESS_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(15),
   AUTH_REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
   AUTH_BCRYPT_ROUNDS: z.coerce.number().int().min(10).max(14).default(12),
+  AUTH_RATE_LIMIT_LOGIN_MAX: z.coerce.number().int().positive().default(5),
+  AUTH_RATE_LIMIT_LOGIN_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  AUTH_RATE_LIMIT_SIGNUP_MAX: z.coerce.number().int().positive().default(10),
+  AUTH_RATE_LIMIT_SIGNUP_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  AUTH_RATE_LIMIT_PASSWORD_FORGOT_MAX: z.coerce.number().int().positive().default(3),
+  AUTH_RATE_LIMIT_PASSWORD_FORGOT_WINDOW_MS: z.coerce.number().int().positive().default(3_600_000),
+  AUTH_RATE_LIMIT_PASSWORD_RESET_MAX: z.coerce.number().int().positive().default(5),
+  AUTH_RATE_LIMIT_PASSWORD_RESET_WINDOW_MS: z.coerce.number().int().positive().default(300_000),
   JWT_ACCESS_SECRET: z.string().min(32).default('comnetish-dev-access-secret-change-me-1234'),
   JWT_REFRESH_SECRET: z.string().min(32).default('comnetish-dev-refresh-secret-change-me-1234'),
   PROVIDER_AUTH_SECRET: z.string().min(16).default('comnetish-dev-provider-auth-secret'),
@@ -33,7 +41,13 @@ const envSchema = z.object({
   SIWE_CHAIN_ID: z.coerce.number().int().positive().default(1),
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_API_URL: z.string().url().default('https://api.anthropic.com/v1/messages'),
-  ANTHROPIC_MODEL: z.string().default('claude-3-5-sonnet-20241022')
+  ANTHROPIC_MODEL: z.string().default('claude-3-5-sonnet-20241022'),
+  COMNETISH_RPC_URL: z.string().url().default('http://localhost:26657'),
+  COMNETISH_REST_URL: z.string().url().default('http://localhost:1317'),
+  COMNETISH_CHAIN_ID: z.string().default('comnetish-1'),
+  COMNETISH_GAS_PRICE: z.string().default('0.025ucnt'),
+  COMNETISH_RELAYER_MNEMONIC: z.string().optional(),
+  COMNETISH_MOCK: booleanString.default('false')
 });
 
 export const env = envSchema.parse(process.env);

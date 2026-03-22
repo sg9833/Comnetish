@@ -173,11 +173,30 @@ Full escrow for compute leases.
 
 ### Marketplace.sol (stub)
 
-Currently a no-op. Long-term design options:
+**Status:** Intentional placeholder. Marketplace logic is Cosmos-chain-native.
 
-1. Keep marketplace logic fully on Cosmos chain (x/market) — EVM marketplace stays stub
-2. Implement EVM Marketplace for EVM-native tenants who want MetaMask-driven deployments
-3. Hybrid: EVM Marketplace emits events that a bridge relayer picks up to create Cosmos deployments
+**Design Decision:**
+Comnetish implements the marketplace exclusively on the Cosmos chain via the `x/market` module. The EVM Marketplace.sol contract is a no-op placeholder that exists to:
+
+1. Reserve the namespace for potential future EVM-native marketplace features
+2. Document architectural intent: Cosmos is the coordination layer
+3. Maintain parity with Akash's dual-layer design pattern
+
+**Rationale:**
+
+- **Separation of concerns:** Cosmos handles coordination (orders, bids, leases); EVM handles settlement (payments, escrow)
+- **On-chain state machine:** x/market module provides atomic bid/lease transitions that are difficult/expensive to replicate on EVM
+- **Provider infrastructure:** Provider nodes already watch Cosmos chain events for order notifications
+- **Simplicity:** Fewer smart contracts = smaller attack surface
+
+**Future Expansion:**
+If EVM-native tenants become a requirement:
+
+1. Implement `Marketplace.createBid()` on EVM side
+2. Deploy a relayer to watch EVM events and create corresponding Cosmos x/market::Bid messages
+3. Maintain eventual consistency via event bridging
+
+See [contracts/contracts/Marketplace.sol](contracts/contracts/Marketplace.sol) for inline documentation.
 
 ---
 

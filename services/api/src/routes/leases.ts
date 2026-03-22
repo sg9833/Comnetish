@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { prisma } from '../lib/db';
+import { emitDeploymentLog, getRecentDeploymentLogs, subscribeToDeploymentLogs } from '../lib/deployment-logs';
 import { HttpError } from '../lib/http-error';
 import { requireCurrentSession } from '../lib/auth/session';
 import {
@@ -14,7 +15,9 @@ import {
 const createLeaseSchema = z.object({
   deploymentId: z.string().min(1),
   providerId: z.string().min(1),
-  pricePerBlock: z.number().positive()
+  pricePerBlock: z.number().positive(),
+  escrowLeaseId: z.string().min(1).optional(),
+  escrowTxHash: z.string().min(3).optional()
 });
 
 const leases = new Hono();
@@ -104,6 +107,28 @@ leases.post('/', zValidator('json', createLeaseSchema), async (c) => {
       }
     });
   });
+
+  if (lease) {
+    emitDeploymentLog({
+      deploymentId: lease.deploymentId,
+      leaseId: lease.id,
+      providerId: lease.providerId,
+      source: 'leases.route',
+      message: `Lease ${lease.id.slice(0, 8)} activated at pricePerBlock=${lease.pricePerBlock}`,
+      level: 'info'
+    });
+
+    if (payload.escrowLeaseId || payload.escrowTxHash) {
+      emitDeploymentLog({
+        deploymentId: lease.deploymentId,
+        leaseId: lease.id,
+        providerId: lease.providerId,
+        source: 'leases.route',
+        message: `Escrow linkage acknowledged leaseId=${payload.escrowLeaseId ?? 'n/a'} tx=${payload.escrowTxHash?.slice(0, 12) ?? 'n/a'}...`,
+        level: 'info'
+      });
+    }
+  }
 
   return c.json({ data: lease }, 201);
 });
@@ -197,56 +222,76 @@ leases.get('/:id/logs', async (c) => {
   }
 
   const encoder = new TextEncoder();
-  let tick = 0;
   let closed = false;
-  let interval: ReturnType<typeof setInterval> | null = null;
+  let keepAlive: ReturnType<typeof setInterval> | null = null;
+  let unsubscribe: (() => void) | null = null;
+  const deploymentId = lease.deploymentId;
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
-      interval = setInterval(() => {
-        if (closed) {
-          if (interval) {
-            clearInterval(interval);
-            interval = null;
-          }
-          return;
-        }
-
-        tick += 1;
-
+      const recent = getRecentDeploymentLogs(deploymentId, 30);
+      for (const event of recent) {
         try {
-          controller.enqueue(
-            encoder.encode(`data: [${new Date().toISOString()}] lease=${id} status=${lease.status} tick=${tick}\\n\\n`)
-          );
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\\n\\n`));
         } catch {
           closed = true;
-          if (interval) {
-            clearInterval(interval);
-            interval = null;
+          return;
+        }
+      }
+
+      unsubscribe = subscribeToDeploymentLogs(deploymentId, (event) => {
+        if (closed) {
+          return;
+        }
+
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\\n\\n`));
+        } catch {
+          closed = true;
+          if (unsubscribe) {
+            unsubscribe();
+            unsubscribe = null;
+          }
+          if (keepAlive) {
+            clearInterval(keepAlive);
+            keepAlive = null;
+          }
+        }
+      });
+
+      keepAlive = setInterval(() => {
+        if (closed) {
+          if (keepAlive) {
+            clearInterval(keepAlive);
+            keepAlive = null;
           }
           return;
         }
 
-        if (tick >= 20) {
+        try {
+          controller.enqueue(encoder.encode(`event: ping\\ndata: ${JSON.stringify({ ts: new Date().toISOString() })}\\n\\n`));
+        } catch {
           closed = true;
-          if (interval) {
-            clearInterval(interval);
-            interval = null;
+          if (unsubscribe) {
+            unsubscribe();
+            unsubscribe = null;
           }
-
-          try {
-            controller.close();
-          } catch {
-            // stream controller may already be closed by client disconnect
+          if (keepAlive) {
+            clearInterval(keepAlive);
+            keepAlive = null;
           }
         }
-      }, 1000);
+      }, 15_000);
     },
     cancel() {
       closed = true;
-      if (interval) {
-        clearInterval(interval);
-        interval = null;
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
+      if (keepAlive) {
+        clearInterval(keepAlive);
+        keepAlive = null;
       }
     }
   });

@@ -55,8 +55,27 @@ type ManualFormState = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const USD_PER_CNT = Number(process.env.NEXT_PUBLIC_USD_PER_CNT ?? 0.19);
+const CNT_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_CNT_TOKEN_ADDRESS as `0x${string}` | undefined;
+const PAYMENT_ESCROW_ADDRESS = process.env.NEXT_PUBLIC_PAYMENT_ESCROW_ADDRESS as `0x${string}` | undefined;
+const PAYMENT_TOKEN_DECIMALS = Number(process.env.NEXT_PUBLIC_PAYMENT_TOKEN_DECIMALS ?? 6);
+const PROVIDER_GATEWAY_URL = process.env.NEXT_PUBLIC_PROVIDER_GATEWAY_URL?.trim();
 const USDC_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_USDC_TOKEN_ADDRESS as `0x${string}` | undefined;
 const USDC_SPENDER_ADDRESS = process.env.NEXT_PUBLIC_USDC_SPENDER_ADDRESS as `0x${string}` | undefined;
+
+const paymentEscrowAbi = [
+  {
+    type: 'function',
+    name: 'depositForLease',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'leaseId', type: 'uint256' },
+      { name: 'provider', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+      { name: 'maxDuration', type: 'uint64' }
+    ],
+    outputs: []
+  }
+] as const;
 
 function StepIndicator({ step }: { step: Step }) {
   const items = [
@@ -245,7 +264,14 @@ function DeployWizard() {
   const providerFromUrl = searchParams.get('provider');
   const { address: walletAddress } = useAccount();
   const { writeContract, data: approvalTxHash, isPending: isSubmittingApproval, error: approvalError } = useWriteContract();
+  const {
+    writeContract: writeEscrowContract,
+    data: escrowTxHash,
+    isPending: isSubmittingEscrow,
+    error: escrowError
+  } = useWriteContract();
   const approvalReceipt = useWaitForTransactionReceipt({ hash: approvalTxHash });
+  const escrowReceipt = useWaitForTransactionReceipt({ hash: escrowTxHash });
 
   const [step, setStep] = useState<Step>(1);
   const [mode, setMode] = useState<Mode>('ai');
@@ -257,6 +283,11 @@ function DeployWizard() {
   const [animatedSdl, setAnimatedSdl] = useState('');
   const [showAiReview, setShowAiReview] = useState(false);
   const [usdApproved, setUsdApproved] = useState(false);
+  const [cntEscrowFunded, setCntEscrowFunded] = useState(false);
+  const [escrowLeaseId, setEscrowLeaseId] = useState<bigint | null>(null);
+  const [escrowAmountCnt, setEscrowAmountCnt] = useState<number | null>(null);
+  const [escrowAmountBaseUnits, setEscrowAmountBaseUnits] = useState<string | null>(null);
+  const [escrowMaxDurationSeconds, setEscrowMaxDurationSeconds] = useState<number | null>(null);
 
   const [manual, setManual] = useState<ManualFormState>({
     deploymentName: 'fastapi-service',
@@ -371,12 +402,19 @@ function DeployWizard() {
   });
 
   const canApproveUsdc = Boolean(walletAddress && USDC_TOKEN_ADDRESS && USDC_SPENDER_ADDRESS);
+  const canFundCntEscrow = Boolean(walletAddress && CNT_TOKEN_ADDRESS && PAYMENT_ESCROW_ADDRESS && selectedProvider);
 
   useEffect(() => {
     if (approvalReceipt.isSuccess) {
       setUsdApproved(true);
     }
   }, [approvalReceipt.isSuccess]);
+
+  useEffect(() => {
+    if (escrowReceipt.isSuccess) {
+      setCntEscrowFunded(true);
+    }
+  }, [escrowReceipt.isSuccess]);
 
   const approveUsdc = () => {
     if (!walletAddress || !USDC_TOKEN_ADDRESS || !USDC_SPENDER_ADDRESS) {
@@ -389,6 +427,42 @@ function DeployWizard() {
       functionName: 'approve',
       args: [USDC_SPENDER_ADDRESS, parseUnits('1000000', 6)]
     });
+  };
+
+  const fundCntEscrow = () => {
+    if (!walletAddress || !CNT_TOKEN_ADDRESS || !PAYMENT_ESCROW_ADDRESS || !selectedProvider) {
+      return;
+    }
+
+    const tokenAmount = Math.max(estimatedPerHour * 24, 0.01);
+    const amount = parseUnits(tokenAmount.toFixed(Math.min(PAYMENT_TOKEN_DECIMALS, 6)), PAYMENT_TOKEN_DECIMALS);
+    const leaseId = BigInt(Date.now());
+    const maxDurationSeconds = BigInt(60 * 60 * 24);
+
+    setCntEscrowFunded(false);
+    setEscrowLeaseId(leaseId);
+    setEscrowAmountCnt(Number(tokenAmount.toFixed(6)));
+    setEscrowAmountBaseUnits(amount.toString());
+    setEscrowMaxDurationSeconds(Number(maxDurationSeconds));
+
+    writeContract(
+      {
+        address: CNT_TOKEN_ADDRESS,
+        abi: erc20Abi,
+        functionName: 'approve',
+        args: [PAYMENT_ESCROW_ADDRESS, amount]
+      },
+      {
+        onSuccess: () => {
+          writeEscrowContract({
+            address: PAYMENT_ESCROW_ADDRESS,
+            abi: paymentEscrowAbi,
+            functionName: 'depositForLease',
+            args: [leaseId, selectedProvider.address as `0x${string}`, amount, maxDurationSeconds]
+          });
+        }
+      }
+    );
   };
 
   useEffect(() => {
@@ -460,6 +534,74 @@ function DeployWizard() {
         throw new Error('Wallet not connected. Please connect your wallet to deploy.');
       }
 
+      let onChainDeploymentId: string | null = null;
+      let onChainTxHash: string | null = null;
+
+      // Step 1: Broadcast deployment to Cosmos chain
+      try {
+        const broadcastResponse = await fetch(`${API_BASE}/api/deployments/broadcast/create`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            tenantAddress: walletAddress,
+            sdl: effectiveSdl
+          })
+        });
+
+        if (broadcastResponse.ok) {
+          const broadcastPayload = (await broadcastResponse.json()) as {
+            data: {
+              chainTxHash: string | null;
+              chainDeploymentId: string | null;
+              status: string;
+              message: string;
+            };
+          };
+
+          if (broadcastPayload.data.status === 'BROADCAST') {
+            onChainDeploymentId = broadcastPayload.data.chainDeploymentId;
+            onChainTxHash = broadcastPayload.data.chainTxHash;
+            console.log(
+              '[console] MsgCreateDeployment broadcast success',
+              onChainDeploymentId,
+              onChainTxHash
+            );
+          } else {
+            console.warn(
+              '[console] Chain broadcast skipped or unavailable:',
+              broadcastPayload.data.message
+            );
+          }
+        } else {
+          console.warn(
+            '[console] Chain broadcast endpoint returned',
+            broadcastResponse.status
+          );
+        }
+      } catch (error) {
+        console.warn(
+          '[console] Chain broadcast failed (non-blocking):',
+          error instanceof Error ? error.message : 'unknown'
+        );
+      }
+
+      const escrowFundingPayload =
+        paymentMethod === 'CNT' && cntEscrowFunded && escrowLeaseId && escrowTxHash && selectedProvider && PAYMENT_ESCROW_ADDRESS
+          ? {
+              leaseId: escrowLeaseId.toString(),
+              txHash: escrowTxHash,
+              token: 'CNT',
+              amount: escrowAmountCnt ?? estimatedPerHour,
+              amountBaseUnits: escrowAmountBaseUnits ?? '0',
+              providerAddress: selectedProvider.address,
+              escrowAddress: PAYMENT_ESCROW_ADDRESS,
+              maxDurationSeconds: escrowMaxDurationSeconds ?? 60 * 60 * 24
+            }
+          : undefined;
+
+      // Step 2: Create off-chain deployment record
       const createResponse = await fetch(`${API_BASE}/api/deployments`, {
         method: 'POST',
         headers: {
@@ -467,7 +609,10 @@ function DeployWizard() {
         },
         body: JSON.stringify({
           tenantAddress: walletAddress,
-          sdl: effectiveSdl
+          sdl: effectiveSdl,
+          onChainDeploymentId,
+          onChainTxHash,
+          ...(escrowFundingPayload ? { escrowFunding: escrowFundingPayload } : {})
         })
       });
 
@@ -476,6 +621,47 @@ function DeployWizard() {
       }
 
       const payload = (await createResponse.json()) as { data: { id: string } };
+
+      const pricePerBlock = Math.max((selectedProvider.cntPerHour ?? estimatedPerHour) / 120, 0.000001);
+
+      // Step 3: Create lease
+      const leaseResponse = await fetch(`${API_BASE}/api/leases`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          deploymentId: payload.data.id,
+          providerId: selectedProvider.id,
+          pricePerBlock: Number(pricePerBlock.toFixed(6)),
+          ...(escrowLeaseId ? { escrowLeaseId: escrowLeaseId.toString() } : {}),
+          ...(escrowTxHash ? { escrowTxHash } : {})
+        })
+      });
+
+      if (!leaseResponse.ok) {
+        throw new Error(`Lease creation failed: ${leaseResponse.status}`);
+      }
+
+      const leasePayload = (await leaseResponse.json()) as { data: { id: string } };
+
+      // Step 4: Submit manifest
+      const manifestResponse = await fetch(`${API_BASE}/api/deployments/${payload.data.id}/manifest`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          leaseId: leasePayload.data.id,
+          manifest: effectiveSdl,
+          ...(PROVIDER_GATEWAY_URL ? { providerGatewayUrl: PROVIDER_GATEWAY_URL } : {})
+        })
+      });
+
+      if (!manifestResponse.ok) {
+        throw new Error(`Manifest submission failed: ${manifestResponse.status}`);
+      }
+
       return payload.data.id;
     },
     onSuccess: (deploymentId) => {
@@ -814,12 +1000,45 @@ function DeployWizard() {
                       </p>
                     </div>
                   ) : (
-                    <div className="rounded-lg border border-[rgba(0,255,194,0.1)] bg-surface/60 p-3">
-                      <p className="text-sm text-text-muted">Connected wallet</p>
-                      {walletAddress ? (
-                        <p className="font-mono text-xs text-text-primary">{walletAddress.slice(0, 10)}…{walletAddress.slice(-6)}</p>
-                      ) : (
-                        <div className="mt-1"><ConnectButton /></div>
+                    <div className="space-y-3">
+                      <div className="rounded-lg border border-[rgba(0,255,194,0.1)] bg-surface/60 p-3">
+                        <p className="text-sm text-text-muted">Connected wallet</p>
+                        {walletAddress ? (
+                          <p className="font-mono text-xs text-text-primary">{walletAddress.slice(0, 10)}…{walletAddress.slice(-6)}</p>
+                        ) : (
+                          <div className="mt-1"><ConnectButton /></div>
+                        )}
+                      </div>
+
+                      <Button
+                        variant="secondary"
+                        onClick={fundCntEscrow}
+                        loading={isSubmittingApproval || isSubmittingEscrow || escrowReceipt.isLoading}
+                        disabled={!canFundCntEscrow || cntEscrowFunded}
+                      >
+                        {cntEscrowFunded ? 'CNT Escrow Funded' : 'Fund CNT Escrow (24h)'}
+                      </Button>
+
+                      {!canFundCntEscrow && (
+                        <p className="text-xs text-brand-warning">
+                          Configure NEXT_PUBLIC_CNT_TOKEN_ADDRESS and NEXT_PUBLIC_PAYMENT_ESCROW_ADDRESS to enable CNT funding.
+                        </p>
+                      )}
+
+                      {escrowLeaseId && (
+                        <p className="text-xs text-text-muted">Escrow lease ID: {escrowLeaseId.toString()}</p>
+                      )}
+
+                      {approvalTxHash && (
+                        <p className="text-xs text-text-muted">Approve tx: {approvalTxHash.slice(0, 10)}…{approvalTxHash.slice(-8)}</p>
+                      )}
+
+                      {escrowTxHash && (
+                        <p className="text-xs text-text-muted">Deposit tx: {escrowTxHash.slice(0, 10)}…{escrowTxHash.slice(-8)}</p>
+                      )}
+
+                      {(approvalError || escrowError) && (
+                        <p className="text-xs text-brand-warning">{approvalError?.message ?? escrowError?.message}</p>
                       )}
                     </div>
                   )}
@@ -834,7 +1053,7 @@ function DeployWizard() {
                   variant="primary"
                   onClick={() => launchMutation.mutate()}
                   loading={launchMutation.isPending}
-                  disabled={paymentMethod === 'USDC' ? !usdApproved : false}
+                  disabled={paymentMethod === 'USDC' ? !usdApproved : !cntEscrowFunded}
                 >
                   Launch Deployment
                 </Button>

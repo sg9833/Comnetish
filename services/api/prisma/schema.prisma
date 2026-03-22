@@ -151,6 +151,7 @@ model Provider {
   storage     Int
   pricePerCpu Float
   status      ProviderStatus   @default(ACTIVE)
+  gatewayUrl  String?
   lastSeen    DateTime         @default(now())
   bids        Bid[]
   leases      Lease[]

@@ -15,7 +15,9 @@
     "build": "tsup src/index.ts --format esm --dts",
     "dev": "tsup src/index.ts --watch --format esm --dts",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"No tests yet for @comnetish/chain-client\""
+    "test": "echo \"No tests yet for @comnetish/chain-client\"",
+    "proto:generate": "echo 'Proto files not yet available in repo. See PROTO_SETUP.md for migration procedure.'",
+    "proto:validate": "echo 'Proto validation pending'"
   },
   "dependencies": {
     "@comnetish/types": "workspace:*",
@@ -23,6 +25,8 @@
     "@cosmjs/stargate": "^0.33.1"
   },
   "devDependencies": {
+    "@types/node": "^20.10.6",
+    "ts-proto": "^1.177.0",
     "tsup": "^8.3.5",
     "typescript": "^5.6.3"
   }

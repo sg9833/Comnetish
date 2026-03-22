@@ -2,6 +2,7 @@
 
 import '@rainbow-me/rainbowkit/styles.css';
 
+import { ComnetishClient } from '@comnetish/chain-client';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Badge, Button, Card, Spinner } from '@comnetish/ui';
 import confetti from 'canvas-confetti';
@@ -38,6 +39,159 @@ type CheckItem = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const REGISTRATION_MODE = process.env.NEXT_PUBLIC_PROVIDER_REGISTRATION_MODE ?? 'blockchain';
+const PROVIDER_CHAIN_MNEMONIC = process.env.NEXT_PUBLIC_PROVIDER_CHAIN_MNEMONIC?.trim();
+const PROVIDER_CHAIN_RPC_URL = process.env.NEXT_PUBLIC_PROVIDER_CHAIN_RPC_URL ?? 'http://localhost:26657';
+const PROVIDER_CHAIN_REST_URL = process.env.NEXT_PUBLIC_PROVIDER_CHAIN_REST_URL ?? 'http://localhost:1317';
+const PROVIDER_CHAIN_ID = process.env.NEXT_PUBLIC_PROVIDER_CHAIN_ID ?? 'comnetish-1';
+const PROVIDER_HOST_URI = process.env.NEXT_PUBLIC_PROVIDER_HOST_URI ?? 'https://localhost:8443';
+
+type ProviderCertificateBundle = {
+  algorithm: string;
+  address: string;
+  publicKeyId: string;
+  publicKeyPem: string;
+  privateKeyPem: string;
+  certificatePem: string;
+  generatedAt: string;
+};
+
+type EncryptedProviderCertificateBundle = {
+  version: number;
+  algorithm: 'AES-GCM';
+  kdf: {
+    name: 'PBKDF2';
+    hash: 'SHA-256';
+    iterations: number;
+    saltB64: string;
+  };
+  ivB64: string;
+  ciphertextB64: string;
+  createdAt: string;
+};
+
+const CERT_EXPORT_KDF_ITERATIONS = 310_000;
+
+function toBase64(buffer: ArrayBuffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 1) {
+    binary += String.fromCharCode(bytes[i]!);
+  }
+  return btoa(binary);
+}
+
+function utf8ToArrayBuffer(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+async function deriveExportKey(passphrase: string, salt: Uint8Array) {
+  const keyMaterial = await crypto.subtle.importKey('raw', utf8ToArrayBuffer(passphrase), 'PBKDF2', false, ['deriveKey']);
+  const saltBuffer = salt.buffer.slice(salt.byteOffset, salt.byteOffset + salt.byteLength) as ArrayBuffer;
+
+  return crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      hash: 'SHA-256',
+      iterations: CERT_EXPORT_KDF_ITERATIONS,
+      salt: saltBuffer
+    },
+    keyMaterial,
+    {
+      name: 'AES-GCM',
+      length: 256
+    },
+    false,
+    ['encrypt']
+  );
+}
+
+async function encryptCertificateBundle(
+  bundle: ProviderCertificateBundle,
+  passphrase: string
+): Promise<EncryptedProviderCertificateBundle> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ivBuffer = iv.buffer.slice(iv.byteOffset, iv.byteOffset + iv.byteLength) as ArrayBuffer;
+  const aesKey = await deriveExportKey(passphrase, salt);
+
+  const plaintext = utf8ToArrayBuffer(JSON.stringify(bundle));
+  const ciphertextBuffer = await crypto.subtle.encrypt(
+    {
+      name: 'AES-GCM',
+      iv: ivBuffer
+    },
+    aesKey,
+    plaintext
+  );
+
+  return {
+    version: 1,
+    algorithm: 'AES-GCM',
+    kdf: {
+      name: 'PBKDF2',
+      hash: 'SHA-256',
+      iterations: CERT_EXPORT_KDF_ITERATIONS,
+      saltB64: toBase64(salt.buffer.slice(salt.byteOffset, salt.byteOffset + salt.byteLength) as ArrayBuffer)
+    },
+    ivB64: toBase64(iv.buffer.slice(iv.byteOffset, iv.byteOffset + iv.byteLength) as ArrayBuffer),
+    ciphertextB64: toBase64(ciphertextBuffer),
+    createdAt: new Date().toISOString()
+  };
+}
+
+function toPem(label: string, base64: string) {
+  const chunks = base64.match(/.{1,64}/g) ?? [];
+  return `-----BEGIN ${label}-----\n${chunks.join('\n')}\n-----END ${label}-----`;
+}
+
+async function generateProviderCertificateMaterial(address: string): Promise<ProviderCertificateBundle> {
+  const keyPair = await crypto.subtle.generateKey(
+    {
+      name: 'ECDSA',
+      namedCurve: 'P-256'
+    },
+    true,
+    ['sign', 'verify']
+  );
+
+  const [spkiBuffer, pkcs8Buffer] = await Promise.all([
+    crypto.subtle.exportKey('spki', keyPair.publicKey),
+    crypto.subtle.exportKey('pkcs8', keyPair.privateKey)
+  ]);
+
+  const publicKeyB64 = toBase64(spkiBuffer);
+  const privateKeyB64 = toBase64(pkcs8Buffer);
+  const publicKeyPem = toPem('PUBLIC KEY', publicKeyB64);
+  const privateKeyPem = toPem('PRIVATE KEY', privateKeyB64);
+
+  const publicKeyId = `pub-${publicKeyB64.replace(/[^a-zA-Z0-9]/g, '').slice(0, 24)}`;
+  const certificatePayload = JSON.stringify({
+    v: 1,
+    address: address.toLowerCase(),
+    alg: 'ECDSA_P256',
+    publicKeyPem,
+    issuedAt: new Date().toISOString()
+  });
+
+  const certificatePayloadBytes = new TextEncoder().encode(certificatePayload);
+  const certificatePayloadBuffer = certificatePayloadBytes.buffer.slice(
+    certificatePayloadBytes.byteOffset,
+    certificatePayloadBytes.byteOffset + certificatePayloadBytes.byteLength
+  ) as ArrayBuffer;
+
+  const certificatePem = toPem('COMNETISH CERTIFICATE', toBase64(certificatePayloadBuffer));
+
+  return {
+    algorithm: 'ECDSA_P256',
+    address,
+    publicKeyId,
+    publicKeyPem,
+    privateKeyPem,
+    certificatePem,
+    generatedAt: new Date().toISOString()
+  };
+}
 
 function detectOs(): OsType {
   if (typeof navigator === 'undefined') {
@@ -184,8 +338,25 @@ function OnboardFlow() {
   const [registering, setRegistering] = useState(false);
   const [registered, setRegistered] = useState(false);
   const [registrationHash, setRegistrationHash] = useState<string | null>(null);
+  const [registrationWarning, setRegistrationWarning] = useState<string | null>(null);
+  const [certificateBundle, setCertificateBundle] = useState<ProviderCertificateBundle | null>(null);
+  const [exportPassphrase, setExportPassphrase] = useState('');
+  const [confirmExportPassphrase, setConfirmExportPassphrase] = useState('');
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportingBundle, setExportingBundle] = useState(false);
   const [copied, setCopied] = useState(false);
   const [daemonLive, setDaemonLive] = useState(false);
+
+  const chainClient = useMemo(
+    () =>
+      new ComnetishClient({
+        rpcUrl: PROVIDER_CHAIN_RPC_URL,
+        restUrl: PROVIDER_CHAIN_REST_URL,
+        chainId: PROVIDER_CHAIN_ID,
+        mock: REGISTRATION_MODE === 'mock'
+      }),
+    []
+  );
 
   useEffect(() => {
     async function detectMachine() {
@@ -269,6 +440,7 @@ function OnboardFlow() {
     }
 
     setRegistering(true);
+    setRegistrationWarning(null);
     try {
       const region = machine?.os === 'windows' ? 'local-windows' : machine?.os === 'mac' ? 'local-mac' : 'local-linux';
       const payload = JSON.stringify({
@@ -283,23 +455,63 @@ function OnboardFlow() {
         message: payload
       });
 
-      if (REGISTRATION_MODE === 'live') {
+      let txHash: string | null = null;
+
+      if (REGISTRATION_MODE === 'blockchain' || REGISTRATION_MODE === 'mock') {
+        if (PROVIDER_CHAIN_MNEMONIC) {
+          try {
+            const certificateMaterial = await generateProviderCertificateMaterial(address);
+            setCertificateBundle(certificateMaterial);
+
+            const certTx = await chainClient.createProviderCertificate(
+              {
+                publicKey: certificateMaterial.publicKeyId,
+                certificatePem: certificateMaterial.certificatePem
+              },
+              PROVIDER_CHAIN_MNEMONIC
+            );
+
+            const tx = await chainClient.registerProvider(
+              {
+                hostUri: PROVIDER_HOST_URI,
+                region,
+                cpu: allocation.cpu,
+                memory: allocation.ramMb,
+                storage: allocation.storageGb,
+                pricePerCpu: 1
+              },
+              PROVIDER_CHAIN_MNEMONIC
+            );
+            txHash = `${certTx.txHash}:${tx.txHash}`;
+          } catch (error) {
+            setRegistrationWarning(
+              `Certificate or chain registration failed (${error instanceof Error ? error.message : 'unknown error'}). Falling back to local registration.`
+            );
+          }
+        } else {
+          setRegistrationWarning('NEXT_PUBLIC_PROVIDER_CHAIN_MNEMONIC is not set; skipping on-chain registration.');
+        }
+      }
+
+      if (!txHash && REGISTRATION_MODE === 'live') {
         const encoded = new TextEncoder().encode(`comnetish-register:${Date.now()}`);
         const txData = `0x${Array.from(encoded)
           .map((value) => value.toString(16).padStart(2, '0'))
           .join('')}` as Hex;
 
-        const txHash = await sendTransactionAsync({
+        txHash = await sendTransactionAsync({
           to: address,
           value: 0n,
           data: txData
         });
-
-        setRegistrationHash(txHash);
-      } else {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        setRegistrationHash(`0x${signature.slice(2, 18)}${Date.now().toString(16)}`);
       }
+
+      if (!txHash) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        txHash = `0x${signature.slice(2, 18)}${Date.now().toString(16)}`;
+      }
+
+      setRegistrationHash(txHash);
 
       const response = await fetch(`${API_BASE}/api/providers`, {
         method: 'POST',
@@ -378,6 +590,39 @@ health:
 
     return () => window.clearInterval(intervalId);
   }, [step, registered, daemonLive, router]);
+
+  async function downloadCertificateBundle() {
+    if (!certificateBundle) {
+      return;
+    }
+
+    const passphrase = exportPassphrase.trim();
+    if (passphrase.length < 12) {
+      setExportError('Passphrase must be at least 12 characters.');
+      return;
+    }
+
+    if (passphrase !== confirmExportPassphrase.trim()) {
+      setExportError('Passphrase and confirmation do not match.');
+      return;
+    }
+
+    setExportError(null);
+    setExportingBundle(true);
+
+    try {
+      const encrypted = await encryptCertificateBundle(certificateBundle, passphrase);
+      const blob = new Blob([JSON.stringify(encrypted, null, 2)], { type: 'application/json' });
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = href;
+      link.download = `comnetish-provider-cert-${certificateBundle.address.slice(2, 10)}.enc.json`;
+      link.click();
+      URL.revokeObjectURL(href);
+    } finally {
+      setExportingBundle(false);
+    }
+  }
 
   return (
     <main className="onboardRoot">
@@ -574,6 +819,9 @@ health:
                         </div>
                       </div>
                     )}
+                    {registrationWarning && (
+                      <p className="depHelper" style={{ marginTop: 10 }}>{registrationWarning}</p>
+                    )}
                   </div>
                 ) : (
                   <div className="connectPrompt">Connect a wallet above to continue.</div>
@@ -639,6 +887,47 @@ health:
                     </>
                   )}
                 </div>
+
+                {certificateBundle && (
+                  <div className="depCmd" style={{ marginTop: 16, flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
+                    <p className="depHelper" style={{ margin: 0 }}>
+                      Provider certificate material generated. Export is encrypted with your passphrase before download.
+                    </p>
+                    <code className="depCode" style={{ whiteSpace: 'pre-wrap' }}>{certificateBundle.publicKeyId}</code>
+                    <input
+                      type="password"
+                      value={exportPassphrase}
+                      onChange={(event) => setExportPassphrase(event.target.value)}
+                      placeholder="Export passphrase (min 12 chars)"
+                      aria-label="Export passphrase"
+                      className="slider"
+                      style={{ padding: '10px 12px' }}
+                    />
+                    <input
+                      type="password"
+                      value={confirmExportPassphrase}
+                      onChange={(event) => setConfirmExportPassphrase(event.target.value)}
+                      placeholder="Confirm passphrase"
+                      aria-label="Confirm export passphrase"
+                      className="slider"
+                      style={{ padding: '10px 12px' }}
+                    />
+                    {exportError && <p className="depHelper" style={{ margin: 0 }}>{exportError}</p>}
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <button className="copyBtn" onClick={() => void downloadCertificateBundle()}>
+                        {exportingBundle ? 'Encrypting…' : 'Download encrypted bundle'}
+                      </button>
+                      <button
+                        className="copyBtn"
+                        onClick={() => {
+                          navigator.clipboard.writeText(certificateBundle.privateKeyPem);
+                        }}
+                      >
+                        Copy private key
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="cardFooter split">
                   <Button variant="ghost" onClick={() => setStep(3)}>← Back</Button>

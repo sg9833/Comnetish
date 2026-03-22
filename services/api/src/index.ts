@@ -4,12 +4,16 @@ import { Hono } from 'hono';
 import { ZodError } from 'zod';
 import { env } from './config/env';
 import { prisma } from './lib/db';
+import { getRecentDeploymentLogs, subscribeToDeploymentLogs } from './lib/deployment-logs';
+import { connectProviderLogsStream } from './lib/provider-gateway';
 import { HttpError } from './lib/http-error';
 import { logger } from './lib/logger';
+import { authRateLimiter } from './middleware/rate-limit';
 import { requestLogger } from './middleware/request-logger';
 import { ai } from './routes/ai';
 import { auth } from './routes/auth';
 import { bids } from './routes/bids';
+import { billing } from './routes/billing';
 import { deployments } from './routes/deployments';
 import { leases } from './routes/leases';
 import { providers } from './routes/providers';
@@ -20,13 +24,14 @@ const app = new Hono();
 const { upgradeWebSocket, websocket } = createBunWebSocket();
 
 const wsClients = new Set<{ send: (message: string) => void }>();
-const wsDeploymentClients = new Map<string, Set<{ send: (message: string) => void }>>();
+const wsDeploymentSubscriptions = new WeakMap<{ send: (message: string) => void }, () => void>();
 
 // Support comma-separated origins for local multi-machine testing
 const corsOrigins = env.API_CORS_ORIGIN.split(',').map((o) => o.trim());
 const corsOrigin = corsOrigins.length === 1 ? (corsOrigins[0] ?? env.API_CORS_ORIGIN) : corsOrigins;
 app.use('*', cors({ origin: corsOrigin, credentials: true }));
 app.use('*', requestLogger);
+app.use('/api/auth/*', authRateLimiter);
 
 app.get('/health', (c) =>
   c.json({
@@ -41,6 +46,7 @@ app.route('/api/auth', auth);
 app.route('/api/deployments', deployments);
 app.route('/api/leases', leases);
 app.route('/api/bids', bids);
+app.route('/api/billing', billing);
 app.route('/api/stats', stats);
 app.route('/api/ai', ai);
 app.route('/api/waitlist', waitlist);
@@ -65,10 +71,16 @@ app.get(
     return {
       onOpen(_, ws) {
         const client = ws as unknown as { send: (message: string) => void };
-        if (!wsDeploymentClients.has(deploymentId)) {
-          wsDeploymentClients.set(deploymentId, new Set());
+        const recent = getRecentDeploymentLogs(deploymentId, 30);
+        for (const event of recent) {
+          ws.send(JSON.stringify(event));
         }
-        wsDeploymentClients.get(deploymentId)!.add(client);
+
+        const unsubscribe = subscribeToDeploymentLogs(deploymentId, (event) => {
+          client.send(JSON.stringify(event));
+        });
+        wsDeploymentSubscriptions.set(client, unsubscribe);
+
         ws.send(
           JSON.stringify({
             type: 'connected',
@@ -79,10 +91,99 @@ app.get(
       },
       onClose(_, ws) {
         const client = ws as unknown as { send: (message: string) => void };
-        wsDeploymentClients.get(deploymentId)?.delete(client);
-        if (wsDeploymentClients.get(deploymentId)?.size === 0) {
-          wsDeploymentClients.delete(deploymentId);
+        const unsubscribe = wsDeploymentSubscriptions.get(client);
+        if (unsubscribe) {
+          unsubscribe();
+          wsDeploymentSubscriptions.delete(client);
         }
+      }
+    };
+  })
+);
+
+app.get(
+  '/ws/provider/:providerId/:deploymentOwner/:deploymentSequence/logs',
+  upgradeWebSocket((c) => {
+    const providerId = c.req.param('providerId') ?? '';
+    const deploymentOwner = c.req.param('deploymentOwner') ?? '';
+    const deploymentSequence = c.req.param('deploymentSequence') ?? '';
+
+    return {
+      async onOpen(_, ws) {
+        const client = ws as unknown as { send: (message: string) => void };
+
+        try {
+          // Find provider by ID to get gateway URL
+          const provider = await prisma.provider.findUnique({
+            where: { id: providerId }
+          });
+
+          if (!provider || !provider.gatewayUrl) {
+            ws.send(
+              JSON.stringify({
+                type: 'error',
+                message: 'Provider gateway URL not configured'
+              })
+            );
+            ws.close();
+            return;
+          }
+
+          ws.send(
+            JSON.stringify({
+              type: 'connecting',
+              ts: new Date().toISOString(),
+              provider: provider.id,
+              message: `Connecting to provider logs at ${provider.gatewayUrl}`
+            })
+          );
+
+          // Connect to provider logs stream
+          const providerLogConfig = {
+            baseUrl: provider.gatewayUrl,
+            leaseId: `${deploymentOwner}-${deploymentSequence}`,
+            deploymentOwner,
+            deploymentSequence,
+            timeout: 30000
+          };
+
+          let logCount = 0;
+          await connectProviderLogsStream(providerLogConfig, async (logLine) => {
+            logCount += 1;
+            client.send(
+              JSON.stringify({
+                type: 'log',
+                ts: new Date().toISOString(),
+                count: logCount,
+                data: logLine
+              })
+            );
+          });
+
+          ws.send(
+            JSON.stringify({
+              type: 'completed',
+              ts: new Date().toISOString(),
+              logCount,
+              message: 'Provider logs stream completed'
+            })
+          );
+        } catch (error) {
+          console.error(
+            '[api] provider logs proxy error:',
+            error instanceof Error ? error.message : error
+          );
+          ws.send(
+            JSON.stringify({
+              type: 'error',
+              ts: new Date().toISOString(),
+              message: error instanceof Error ? error.message : 'Unknown error'
+            })
+          );
+        }
+      },
+      onClose(_, ws) {
+        console.log('[api] provider logs WS closed');
       }
     };
   })
@@ -111,56 +212,6 @@ setInterval(async () => {
     client.send(event);
   }
 }, 5000);
-
-// Broadcast structured log events to per-deployment WebSocket subscribers.
-setInterval(async () => {
-  if (wsDeploymentClients.size === 0) {
-    return;
-  }
-
-  for (const [deploymentId, clients] of wsDeploymentClients.entries()) {
-    if (clients.size === 0) {
-      continue;
-    }
-
-    const deployment = await prisma.deployment.findUnique({
-      where: { id: deploymentId },
-      include: { leases: { where: { status: 'ACTIVE' }, take: 1 } }
-    });
-
-    if (!deployment) {
-      continue;
-    }
-
-    const lease = (deployment as any).leases?.[0];
-    const candidates = lease
-      ? [
-          `[orchestrator] lease ${lease.id.slice(0, 8)} active — pricePerBlock=${lease.pricePerBlock}`,
-          `[runtime] container health probe ok`,
-          `[payment] escrow balance evaluated`,
-          `[scheduler] block reconciliation complete`
-        ]
-      : [
-          `[orchestrator] deployment ${deploymentId.slice(0, 8)} awaiting lease`,
-          `[marketplace] bid evaluation in progress`,
-          `[runtime] provider not yet assigned`
-        ];
-
-    const message = candidates[Math.floor(Math.random() * candidates.length)] ?? '[runtime] tick';
-    const level = message.includes('awaiting') || message.includes('progress') ? 'warning' : 'info';
-
-    const event = JSON.stringify({
-      type: 'log',
-      ts: new Date().toISOString(),
-      level,
-      message
-    });
-
-    for (const client of clients) {
-      client.send(event);
-    }
-  }
-}, 3000);
 
 app.onError((error, c) => {
   if (error instanceof HttpError) {

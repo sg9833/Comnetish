@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { prisma } from '../lib/db';
+import { emitDeploymentLog } from '../lib/deployment-logs';
 import { HttpError } from '../lib/http-error';
 import { requireCurrentSession } from '../lib/auth/session';
 import {
@@ -64,6 +65,14 @@ bids.post('/', zValidator('json', createBidSchema), async (c) => {
       provider: true,
       deployment: true
     }
+  });
+
+  emitDeploymentLog({
+    deploymentId: bid.deploymentId,
+    providerId: bid.providerId,
+    source: 'bids.route',
+    message: `Bid submitted by provider ${bid.providerId.slice(0, 8)} at price ${bid.price}`,
+    level: 'info'
   });
 
   return c.json({ data: bid }, 201);
@@ -162,6 +171,14 @@ bids.patch('/:id', zValidator('json', updateBidSchema), async (c) => {
   const updated = await prisma.bid.update({
     where: { id },
     data: { status }
+  });
+
+  emitDeploymentLog({
+    deploymentId: bid.deploymentId,
+    providerId: bid.providerId,
+    source: 'bids.route',
+    message: `Bid ${bid.id.slice(0, 8)} status changed to ${status}`,
+    level: status === 'LOST' ? 'warning' : 'info'
   });
 
   return c.json({ data: updated });

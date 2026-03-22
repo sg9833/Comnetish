@@ -50,6 +50,22 @@ export type CreateLeaseMsg = {
   tenantAddress: string;
 };
 
+export type RegisterProviderMsg = {
+  ownerAddress: string;
+  hostUri: string;
+  region: string;
+  cpu: number;
+  memory: number;
+  storage: number;
+  pricePerCpu: number;
+};
+
+export type CreateCertificateMsg = {
+  ownerAddress: string;
+  publicKey: string;
+  certificatePem: string;
+};
+
 export type CloseDeploymentMsg = {
   deploymentId: string;
   tenantAddress: string;
@@ -233,6 +249,14 @@ export class ComnetishClient {
     const deploymentId = generateId('dseq');
     const result = await this.withClient(tenantKey, async (client, tenantAddress) => {
       const msg: CreateDeploymentMsg = { sdl, tenantAddress };
+      
+      // TODO(protobuf): Replace JSON encoding with protobuf
+      // When chain/proto is available, use:
+      //   import { MsgCreateDeployment } from './proto/comnetish/deployment/v1/msg.js';
+      //   const pbMsg = MsgCreateDeployment.create({ ...msg, deploymentId });
+      //   value: MsgCreateDeployment.encode(pbMsg).finish()
+      // For now, JSON encoding works for mock/testing but is not production-compatible
+      
       return client.signAndBroadcast(
         tenantAddress,
         [
@@ -256,6 +280,8 @@ export class ComnetishClient {
 
     const result = await this.withClient(providerKey, async (client, providerAddress) => {
       const msg: CreateBidMsg = { deploymentId, price, providerAddress };
+      
+      // TODO(protobuf): Replace JSON encoding with protobuf (see PROTO_SETUP.md)
       return client.signAndBroadcast(
         providerAddress,
         [
@@ -278,6 +304,8 @@ export class ComnetishClient {
 
     const result = await this.withClient(tenantKey, async (client, tenantAddress) => {
       const msg: CreateLeaseMsg = { deploymentId, bidId, tenantAddress };
+      
+      // TODO(protobuf): Replace JSON encoding with protobuf (see PROTO_SETUP.md)
       return client.signAndBroadcast(
         tenantAddress,
         [
@@ -305,6 +333,70 @@ export class ComnetishClient {
         [
           {
             typeUrl: '/comnetish.deployment.v1.MsgCloseDeployment',
+            value: textEncoder.encode(JSON.stringify(msg))
+          }
+        ],
+        'auto'
+      );
+    });
+
+    return parseBroadcastResult(result);
+  }
+
+  async registerProvider(
+    provider: Omit<RegisterProviderMsg, 'ownerAddress'>,
+    providerKey: string
+  ): Promise<{ txHash: string }> {
+    if (this.config.mock) {
+      return {
+        txHash: generateTxHash(`provider:${provider.hostUri}:${provider.region}`)
+      };
+    }
+
+    const result = await this.withClient(providerKey, async (client, ownerAddress) => {
+      const msg: RegisterProviderMsg = {
+        ownerAddress,
+        ...provider
+      };
+
+      // TODO(protobuf): Replace JSON encoding with protobuf (see PROTO_SETUP.md)
+      return client.signAndBroadcast(
+        ownerAddress,
+        [
+          {
+            typeUrl: '/comnetish.provider.v1.MsgCreateProvider',
+            value: textEncoder.encode(JSON.stringify(msg))
+          }
+        ],
+        'auto'
+      );
+    });
+
+    return parseBroadcastResult(result);
+  }
+
+  async createProviderCertificate(
+    certificate: Omit<CreateCertificateMsg, 'ownerAddress'>,
+    providerKey: string
+  ): Promise<{ txHash: string }> {
+    if (this.config.mock) {
+      return {
+        txHash: generateTxHash(`cert:${certificate.publicKey.slice(0, 24)}`)
+      };
+    }
+
+    const result = await this.withClient(providerKey, async (client, ownerAddress) => {
+      const msg: CreateCertificateMsg = {
+        ownerAddress,
+        ...certificate
+      };
+
+      // TODO(protobuf): Replace JSON encoding with protobuf (see PROTO_SETUP.md)
+      return client.signAndBroadcast(
+        ownerAddress,
+        [
+          {
+            typeUrl: '/comnetish.cert.v1.MsgCreateCertificate',
             value: textEncoder.encode(JSON.stringify(msg))
           }
         ],
@@ -545,6 +637,20 @@ export async function closeDeployment(
   tenantKey: string
 ): Promise<{ txHash: string }> {
   return defaultClient.closeDeployment(deploymentId, tenantKey);
+}
+
+export async function registerProvider(
+  provider: Omit<RegisterProviderMsg, 'ownerAddress'>,
+  providerKey: string
+): Promise<{ txHash: string }> {
+  return defaultClient.registerProvider(provider, providerKey);
+}
+
+export async function createProviderCertificate(
+  certificate: Omit<CreateCertificateMsg, 'ownerAddress'>,
+  providerKey: string
+): Promise<{ txHash: string }> {
+  return defaultClient.createProviderCertificate(certificate, providerKey);
 }
 
 export async function getBalance(address: string): Promise<{ cnt: number; usd: number }> {

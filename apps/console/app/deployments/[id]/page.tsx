@@ -62,6 +62,16 @@ type UsagePoint = {
   memory: number;
 };
 
+type DeploymentRuntime = {
+  deploymentId: string;
+  status: 'PENDING' | 'MANIFEST_RECEIVED' | 'STARTING' | 'RUNNING' | 'FAILED';
+  endpoint: string | null;
+  message?: string;
+  manifestUploadedAt?: string;
+  lastTransitionAt?: string;
+  failureReason?: string | null;
+};
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const DEPLOYMENT_BASE_DOMAIN = process.env.NEXT_PUBLIC_DEPLOYMENT_BASE_DOMAIN?.trim() || null;
 
@@ -294,6 +304,19 @@ function DeploymentDetailContent() {
     refetchInterval: 10_000
   });
 
+  const runtimeQuery = useQuery({
+    queryKey: ['deployment-runtime', deploymentId],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE}/api/deployments/${deploymentId}/runtime`);
+      if (!response.ok) {
+        throw new Error('Failed to load deployment runtime');
+      }
+      const payload = (await response.json()) as { data: DeploymentRuntime };
+      return payload.data;
+    },
+    refetchInterval: 5_000
+  });
+
   const router = useRouter();
 
   const closeMutation = useMutation({
@@ -313,10 +336,39 @@ function DeploymentDetailContent() {
     }
   });
 
+  const submitManifestMutation = useMutation({
+    mutationFn: async () => {
+      if (!deployment?.sdl) {
+        throw new Error('Deployment manifest source is unavailable');
+      }
+
+      const response = await fetch(`${API_BASE}/api/deployments/${deploymentId}/manifest`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          leaseId: lease?.id,
+          manifest: deployment.sdl
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit manifest');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      runtimeQuery.refetch();
+    }
+  });
+
   const deployment = deploymentQuery.data;
   const lease = (leaseQuery.data ?? [])[0];
   const provider = (providersQuery.data ?? []).find((item) => item.id === lease?.providerId);
   const status = deriveStatus(deployment, lease);
+  const runtime = runtimeQuery.data;
 
   const { logs, connectionState } = useDeploymentLogs(deploymentId);
 
@@ -404,7 +456,11 @@ function DeploymentDetailContent() {
     const match = deployment.sdl.match(/storage:\s*\n\s*(?:-\s*)?size:\s*([^\n]+)/i);
     return match?.[1]?.trim() ?? 'N/A';
   })();
-  const liveUrl = status === 'ACTIVE' && DEPLOYMENT_BASE_DOMAIN ? `https://${deploymentId}.${DEPLOYMENT_BASE_DOMAIN}` : null;
+  const liveUrl = runtime?.endpoint
+    ? runtime.endpoint
+    : status === 'ACTIVE' && DEPLOYMENT_BASE_DOMAIN
+      ? `https://${deploymentId}.${DEPLOYMENT_BASE_DOMAIN}`
+      : null;
 
   return (
     <main className="relative min-h-screen bg-background px-6 py-8 text-text-primary">
@@ -419,6 +475,11 @@ function DeploymentDetailContent() {
               <Badge variant={connectionState === 'connected' ? 'success' : 'pending'}>
                 logs: {connectionState}
               </Badge>
+              {runtime?.status && (
+                <Badge variant={runtime.status === 'RUNNING' ? 'success' : runtime.status === 'FAILED' ? 'error' : 'pending'}>
+                  runtime: {runtime.status.toLowerCase()}
+                </Badge>
+              )}
             </div>
 
             {(status === 'PENDING' || status === 'BIDDING') && (
@@ -562,6 +623,34 @@ function DeploymentDetailContent() {
                       ? 'Set NEXT_PUBLIC_DEPLOYMENT_BASE_DOMAIN to display a public deployment URL.'
                       : 'Available once deployment becomes active'}
                   </p>
+                )}
+                {runtime?.failureReason && <p className="mt-1 text-xs text-brand-warning">{runtime.failureReason}</p>}
+              </div>
+
+              <div>
+                <p className="text-text-muted">Manifest orchestration</p>
+                {runtime?.status === 'PENDING' ? (
+                  <div className="mt-2 space-y-2">
+                    <p className="text-xs text-text-muted">Submit manifest to begin provider orchestration.</p>
+                    <Button
+                      variant="secondary"
+                      loading={submitManifestMutation.isPending}
+                      onClick={() => submitManifestMutation.mutate()}
+                    >
+                      Submit Manifest
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-text-muted">
+                    {runtime?.status === 'RUNNING'
+                      ? 'Manifest accepted and service is running.'
+                      : runtime?.status === 'FAILED'
+                        ? 'Manifest processing failed.'
+                        : 'Manifest submitted, waiting for runtime startup...'}
+                  </p>
+                )}
+                {submitManifestMutation.isError && (
+                  <p className="mt-1 text-xs text-brand-warning">{(submitManifestMutation.error as Error).message}</p>
                 )}
               </div>
 

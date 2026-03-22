@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@comnetish/chain-client": "workspace:*",
     "@comnetish/ui": "workspace:*",
     "@rainbow-me/rainbowkit": "^2.2.2",
     "@tanstack/react-query": "^5.66.0",
